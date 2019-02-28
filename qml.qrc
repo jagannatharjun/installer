@@ -1,0 +1,16 @@
+<RCC>
+    <qresource prefix="/">
+        <file>Main.qml</file>
+        <file>Overview.qml</file>
+        <file>StaticDesign.qml</file>
+        <file>Directory.qml</file>
+        <file>CusCheckBox.qml</file>
+        <file>CusCheckBox2.qml</file>
+        <file>CusArc.qml</file>
+        <file>CusPropDelegate.qml</file>
+        <file>Components.qml</file>
+        <file>Requirements.qml</file>
+        <file>Installation.qml</file>
+        <file>Finalization.qml</file>
+    </qresource>
+</RCC>
