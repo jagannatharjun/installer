@@ -7,6 +7,7 @@
 #include <QVector>
 #include <filesystem>
 #include <memory>
+#include <thread>
 
 class TResources;
 
@@ -49,8 +50,7 @@ class TInstallerInfo : public QObject {
 public:
   using ResourcePtr = std::shared_ptr<TResources>;
   explicit TInstallerInfo(QObject *parent = nullptr);
-  void setResources(ResourcePtr p);
-  auto resources() { return Resources; }
+  ~TInstallerInfo();
 
   QString applicationName();
   QString applicationDescription();
@@ -69,11 +69,17 @@ public:
   Q_INVOKABLE int ramUsage();
   Q_INVOKABLE QString gpuText();
   Q_INVOKABLE int cpuUsage();
+  Q_INVOKABLE QString expandConstant(QString);
+  Q_INVOKABLE void startInstallation();
 
   void setDestinationFolder(const QString &destinationFolder);
   QString destinationFolder() const;
 
-  QList<QObject *> componentsPack, languagePack;
+  static void setResources(ResourcePtr p);
+  static void setTerminateInstallation(bool t) { terminateInstallation_ = t; }
+  static bool terminateInstallation() { return terminateInstallation_; }
+  static auto resources() { return Resources; }
+  static QList<QObject *> componentsPack, languagePack;
 
 signals:
   void applicationNameChanged();
@@ -83,12 +89,20 @@ signals:
   void sizeStatsChanged();
   void destinationFolderChanged();
 
+  void installationFailed(QString msg);
+  void installationCompleted(QString msg);
 public slots:
 
 private:
-  ResourcePtr Resources;
-  std::filesystem::space_info m_driveInfo;
-  QString m_destinationFolder;
+  static ResourcePtr Resources;
+  static std::filesystem::space_info m_driveInfo;
+  static QString m_destinationFolder;
+  static void setDestinationFolderImpl(const QString &destinationFolder);
+  static bool terminateInstallation_;
+
+  std::unique_ptr<std::thread> installerThread_;
+  bool installerRunning_ = false;
+  void startInstallationImpl();
 };
 
 #endif // TINSTALLERINFO_HPP

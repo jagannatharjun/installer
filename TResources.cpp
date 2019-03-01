@@ -13,6 +13,7 @@ auto myTempDir() {
   while (std::filesystem::exists(t = std::filesystem::temp_directory_path() /
                                      ("installer-" + std::to_string(rand()))))
     ;
+  std::filesystem::create_directory(t);
   return t;
 }
 
@@ -21,12 +22,15 @@ TResources::TResources(std::filesystem::path Source)
 
 TResources::~TResources() {
   std::error_code ec;
-  std::filesystem::remove(TmpFolder_, ec);
+  std::filesystem::remove_all(TmpFolder_, ec);
+  SHOW(ec.message());
 }
 
 TResources::path TResources::extractTemporaryFile(TResources::path File) {
-  GetFile(File, FileBuf_);
   FileBuf_.resize(0);
+  GetFile(File, FileBuf_);
+  if (FileBuf_.size() == 0)
+    throw std::runtime_error{"Failed to Read \"" + File.string() + "\""};
   File = TmpFolder_ / File.filename();
   std::FILE *tmpFile = std::fopen(File.string().c_str(), "wb");
   if (!tmpFile)

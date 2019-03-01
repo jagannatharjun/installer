@@ -46,9 +46,7 @@ private:
 };
 
 TInstallerManager::TInstallerManager(std::shared_ptr<TResources> Resources)
-    : Resources_(Resources), InstallerInfo_(new TInstallerInfo(this)) {
-
-  InstallerInfo_->setResources(Resources);
+    : Resources_(Resources) {
 
   quickView = new QQuickView();
   quickView->installEventFilter(this);
@@ -61,11 +59,11 @@ TInstallerManager::TInstallerManager(std::shared_ptr<TResources> Resources)
   SHOW(rootCtx);
 
   rootCtx->setContextProperty(
-      "languagePackModel", QVariant::fromValue(InstallerInfo_->languagePack));
+      "languagePackModel", QVariant::fromValue(TInstallerInfo::languagePack));
   rootCtx->setContextProperty(
       "componentPackModel",
-      QVariant::fromValue(InstallerInfo_->componentsPack));
-  rootCtx->setContextProperty("installer_info", InstallerInfo_);
+      QVariant::fromValue(TInstallerInfo::componentsPack));
+  // rootCtx->setContextProperty("installer_info", InstallerInfo_);
 
   loadMainQML();
   quickView->show();
@@ -127,6 +125,7 @@ void TInstallerManager::minimizeButtonClicked() {
 
 void TInstallerManager::closeButtonClicked() {
   qDebug() << __func__;
+  TInstallerInfo::setTerminateInstallation(true);
   quickView->close();
 }
 

@@ -6,7 +6,6 @@
 
 class QQuickView;
 class TResources;
-class TInstallerInfo;
 
 class TInstallerManager : public QObject {
   Q_OBJECT
@@ -29,7 +28,6 @@ public slots:
 private:
   QQuickView *quickView;
   std::shared_ptr<TResources> Resources_;
-  TInstallerInfo *InstallerInfo_;
   void loadPageQml(const QUrl &qmlFile);
 };
 

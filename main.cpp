@@ -17,9 +17,9 @@ int main(int argc, char *argv[]) {
 
   QGuiApplication a(argc, argv);
 
-  //  SHOW(qmlRegisterType<TInstallerInfo>("Ascent.info", 1, 0,
-  //  "Installerinfo"));
+  SHOW(qmlRegisterType<TInstallerInfo>("Ascent.info", 1, 0, "Installerinfo"));
   Resources->setMainIni("Setup.ini");
+  TInstallerInfo::setResources(Resources);
   TInstallerManager installer(Resources);
 
   return a.exec();

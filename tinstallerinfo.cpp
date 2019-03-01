@@ -6,8 +6,17 @@
 #include <algorithm>
 #include <filesystem>
 
+#include <gupta/cleanup.hpp>
 #include <gupta/dll.hpp>
 #include <infoware/infoware.hpp>
+
+#include <thread>
+
+TInstallerInfo::ResourcePtr TInstallerInfo::Resources;
+std::filesystem::space_info TInstallerInfo::m_driveInfo;
+QString TInstallerInfo::m_destinationFolder;
+QList<QObject *> TInstallerInfo::componentsPack, TInstallerInfo::languagePack;
+bool TInstallerInfo::terminateInstallation_ = false;
 
 std::string LineSection(const std::string_view line, const std::string_view str,
                         const std::string &Default = "") {
@@ -29,40 +38,55 @@ TComponent *ComponentFromIni(std::string str, QObject *parent) {
   auto c = new TComponent(parent);
   str.insert(0, ":");
   c->name = LineSection(str, ":").c_str();
-  SHOW(LineSection(str, "Checked:"));
   c->checked = StrToBool(LineSection(str, "Checked:"));
-  SHOW(c->checked);
   return c;
 }
 
 TInstallerInfo::TInstallerInfo(QObject *parent) : QObject(parent) {}
+
+TInstallerInfo::~TInstallerInfo() {
+  using namespace std::chrono_literals;
+  while (installerRunning_)
+    std::this_thread::sleep_for(1000ms);
+}
 
 void TInstallerInfo::setResources(TInstallerInfo::ResourcePtr p) {
   if (!(Resources = std::move(p)))
     return;
 
   QString pfDir = qgetenv("ProgramFiles").toStdString().c_str();
-  setDestinationFolder(pfDir + '\\' + applicationName());
+  setDestinationFolderImpl(
+      pfDir + '\\' + Resources->GetIniValue("Setup", "AppName", "").c_str());
+
   int i = 1;
   std::string name;
   while ((name = Resources->GetIniValue(
               "LanguagePacks", "Name" + std::to_string(i++), "")) != "") {
-    languagePack.push_back(ComponentFromIni(name, this));
+    languagePack.push_back(ComponentFromIni(name, nullptr));
   }
   i = 1;
   while ((name = Resources->GetIniValue(
               "ComponentPacks", "Name" + std::to_string(i++), "")) != "") {
-    componentsPack.push_back(ComponentFromIni(name, this));
+    componentsPack.push_back(ComponentFromIni(name, nullptr));
   }
 }
 
+void TInstallerInfo::setDestinationFolderImpl(
+    const QString &destinationFolder) {
+  m_destinationFolder = destinationFolder;
+  if (m_destinationFolder.startsWith("file:///"))
+    m_destinationFolder.remove(0, 8);
+  m_destinationFolder.replace('/', '\\');
+  std::error_code ec;
+  auto f = std::filesystem::path(m_destinationFolder.toStdString()).root_name();
+  m_driveInfo = std::filesystem::space(f, ec);
+}
+
 QString TInstallerInfo::applicationName() {
-  // return Resources->GetIniValue("Setup", "AppName", "Failed").c_str();
   return Resources->GetIniValue("Setup", "AppName", "").c_str();
 }
 
 QString TInstallerInfo::applicationDescription() {
-  qDebug() << __func__;
   static QString d;
   if (d.isEmpty()) {
     auto f = Resources->GetFileText("Description.txt");
@@ -98,9 +122,8 @@ QString TInstallerInfo::requirement(const QString &s) {
       Resources->GetIniValue("Requirements", s.toStdString(), ""));
 }
 
-#include <thread>
-
 static iware::system::OS_info_t i;
+
 void initOSINFO() {
   if (i.full_name.empty()) {
     // CoInitiailize will fail in current thread
@@ -160,29 +183,66 @@ QString TInstallerInfo::expandConstant(QString str) {
   return str;
 }
 
+typedef int Number;
+typedef int __stdcall cbtype(char *what, Number int1, Number int2, char *str);
+
+int __stdcall cb(char *what, Number int1, Number int2, char *str) {
+  debug("\"%\" \"%\" \"%\" \"%\"", what, (uint64_t)int1 << 20,
+        (uint64_t)int2 << 20, str);
+  if (TInstallerInfo::terminateInstallation())
+    std::strcpy(what, "quit");
+  return 1;
+}
+
 void TInstallerInfo::startInstallation() {
-  gupta::DynamicLib isdonedll(
-      Resources->extractTemporaryFile("dll/isdone.dll").wstring().c_str());
+  if (installerThread_) {
+    debug("can't start installtion twice");
+    return;
+  }
+  installerThread_ = std::make_unique<std::thread>(
+      &TInstallerInfo::startInstallationImpl, this);
+  installerThread_->detach();
 }
 
 void TInstallerInfo::setDestinationFolder(const QString &destinationFolder) {
-  SHOW(destinationFolder);
-  m_destinationFolder = destinationFolder;
-  if (m_destinationFolder.startsWith("file:///"))
-    m_destinationFolder.remove(0, 8);
-  m_destinationFolder.replace('/', '\\');
-  SHOW(m_destinationFolder);
-  std::error_code ec;
-  auto f = std::filesystem::path(m_destinationFolder.toStdString()).root_name();
-  m_driveInfo = std::filesystem::space(f, ec);
-  SHOW(ec.message().c_str());
-  SHOW(m_driveInfo.capacity);
+  setDestinationFolderImpl(destinationFolder);
   emit destinationFolderChanged();
   emit sizeStatsChanged();
 }
 
 QString TInstallerInfo::destinationFolder() const {
   return m_destinationFolder;
+}
+
+void TInstallerInfo::startInstallationImpl() try {
+  installerRunning_ = true;
+  gupta::destructor resetStatus = [&]() { installerRunning_ = false; };
+
+  gupta::DynamicLib unarcdll(
+      Resources->extractTemporaryFile("dll/unarc.dll").wstring().c_str());
+  if (!unarcdll.isLoaded())
+    throw std::runtime_error("failed to load unarc.dll");
+
+  using extractor = int(__cdecl *)(cbtype *, ...);
+  using unloadDll_t = void(__cdecl *)();
+  auto FreeArcExtract =
+      (extractor)GetProcAddress(unarcdll.module(), "FreeArcExtract");
+  if (!FreeArcExtract)
+    throw std::runtime_error{"failed to export FreeArcExport"};
+
+  char *s[] = {"x", "E:/test.arc", "\0"};
+  auto r = FreeArcExtract(cb, s[0], s[1], s[2], NULL);
+  if (r)
+    throw std::runtime_error{"FreeArcExtract Failed with error code: " +
+                             std::to_string(r)};
+
+  auto UnloadDll = (unloadDll_t)GetProcAddress(unarcdll.module(), "UnloadDLL");
+  if (!UnloadDll)
+    throw std::runtime_error{"failed to load UnloadDll"};
+  UnloadDll();
+
+} catch (std::exception &e) {
+  emit installationFailed(e.what());
 }
 
 void TComponent::setChecked(bool s) {

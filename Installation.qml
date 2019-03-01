@@ -6,6 +6,7 @@ Item {
     width: 800
     height: 480
 
+    //        installer_info.startInstallation();
     Image {
         x: 278
         y: 97
@@ -21,6 +22,13 @@ Item {
             font.family: defaultFont.name
             font.pixelSize: 18
             color: "white"
+
+            MouseArea {
+                anchors.fill: parent
+                onClicked: {
+                    installer_info.startInstallation()
+                }
+            }
         }
     }
 
@@ -48,7 +56,7 @@ Item {
     }
 
     Text {
-        y:180
+        y: 180
         anchors.right: progressBar.right
         id: remainingTimeText
         text: "Remaining Time: "
@@ -63,7 +71,7 @@ Item {
         x: 278
         y: 210
 
-        Text  {
+        Text {
             anchors.top: parent.top
             anchors.left: parent.right
             anchors.bottom: parent.bottom
@@ -83,7 +91,7 @@ Item {
         y: 249
         source: "image://resources/images/doubleWheel.png"
 
-        Text  {
+        Text {
             anchors.top: parent.top
             anchors.left: parent.right
             anchors.bottom: parent.bottom
@@ -94,11 +102,10 @@ Item {
             font.pixelSize: 18
             color: "white"
         }
-
     }
 
     CusArc {
-        width:  101
+        width: 101
         height: 101
         x: 283
         y: 298
@@ -109,7 +116,7 @@ Item {
         CusArc {
             anchors.fill: parent
             strokeColor: 'white'
-            endAngle:cpuUsageArc.endAngle - 360
+            endAngle: cpuUsageArc.endAngle - 360
             counterclockwise: true
         }
 
@@ -129,7 +136,6 @@ Item {
             color: "white"
             topPadding: 24
         }
-
     }
     Image {
         source: "image://resources/images/cpu.png"
@@ -138,7 +144,7 @@ Item {
     }
 
     CusArc {
-        width:  101
+        width: 101
         height: 101
         x: 444
         y: 298
@@ -146,11 +152,10 @@ Item {
         strokeColor: installer_info.themeColor
         strokeWidth: 4
 
-
         CusArc {
             anchors.fill: parent
             strokeColor: 'white'
-            endAngle:ramUsageArc.endAngle - 360
+            endAngle: ramUsageArc.endAngle - 360
             counterclockwise: true
         }
 
@@ -271,9 +276,6 @@ Item {
 
             anchors.margins: parent.border.width + 1
             color: installer_info.themeColor
-
         }
     }
-
-
 }

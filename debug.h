@@ -1,24 +1,20 @@
 #ifndef DEBUG_H
 #define DEBUG_H
 
-#include <QDebug>
 #include <QString>
+#include <gupta/format_io.hpp>
 
-//#define SHOW(X)                                                                \
-//  qDebug() << __func__ << ":" << __LINE__ << ": " << #X << ": " << (X);
+static std::string to_string(const QString &s) { return s.toStdString(); }
 
-#define SHOW(X)                                                                \
-  qDebug() << QString("%4:%1:%2: %3 = \0")                                     \
-                  .arg(__func__)                                               \
-                  .arg(__LINE__)                                               \
-                  .arg(#X)                                                     \
-                  .arg(__FILE__)                                               \
-                  .toStdString()                                               \
-                  .c_str()                                                     \
-           << X;
+template <typename PtrT> std::string to_string(const PtrT *s) {
+  return typeid(PtrT).name() + std::string("(") +
+         std::to_string(reinterpret_cast<std::uintptr_t>(s)) + ")";
+}
 
-static QDebug &operator<<(QDebug &d, const std::string &s) {
-  return d << s.c_str();
+template <typename Obj,
+          typename = typename std::is_convertible<Obj, bool>::type>
+std::string to_string(const Obj &o) {
+  return (bool)o ? "true" : "false";
 }
 
 #endif // DEBUG_H

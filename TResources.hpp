@@ -31,7 +31,7 @@ public:
   TResources(path Source);
   ~TResources();
 
-  void extractTemporaryFile(path File);
+  path extractTemporaryFile(path File);
 
   buffer_t GetFile(path File);
   buffer_t GetFileText(path File);
