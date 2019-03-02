@@ -16,7 +16,7 @@ add_subdirectory(infoware)
 find_package(Qt5 COMPONENTS Quick Core Qml QuickWidgets REQUIRED)
 foreach(c Core Sql Widgets Quick Multimedia Qml)
     if(${Qt5${c}_FOUND})
-        message(STATUS "Qt5${c} found!")
+        message(STATUS "Qt5${c} found! ")
     endif()
 endforeach()
 

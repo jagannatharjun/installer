@@ -69,11 +69,11 @@ public:
   Q_INVOKABLE int ramUsage();
   Q_INVOKABLE QString gpuText();
   Q_INVOKABLE int cpuUsage();
-  Q_INVOKABLE QString expandConstant(QString);
+  Q_INVOKABLE static QString expandConstant(QString);
   Q_INVOKABLE void startInstallation();
 
   void setDestinationFolder(const QString &destinationFolder);
-  QString destinationFolder() const;
+  static QString destinationFolder();
 
   static void setResources(ResourcePtr p);
   static void setTerminateInstallation(bool t) { terminateInstallation_ = t; }
@@ -100,7 +100,7 @@ private:
   static void setDestinationFolderImpl(const QString &destinationFolder);
   static bool terminateInstallation_;
 
-  std::unique_ptr<std::thread> installerThread_;
+  std::thread installerThread_;
   bool installerRunning_ = false;
   void startInstallationImpl();
 };

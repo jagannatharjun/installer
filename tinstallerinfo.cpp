@@ -44,11 +44,7 @@ TComponent *ComponentFromIni(std::string str, QObject *parent) {
 
 TInstallerInfo::TInstallerInfo(QObject *parent) : QObject(parent) {}
 
-TInstallerInfo::~TInstallerInfo() {
-  using namespace std::chrono_literals;
-  while (installerRunning_)
-    std::this_thread::sleep_for(1000ms);
-}
+TInstallerInfo::~TInstallerInfo() { installerThread_.join(); }
 
 void TInstallerInfo::setResources(TInstallerInfo::ResourcePtr p) {
   if (!(Resources = std::move(p)))
@@ -183,25 +179,39 @@ QString TInstallerInfo::expandConstant(QString str) {
   return str;
 }
 
-typedef int Number;
-typedef int __stdcall cbtype(char *what, Number int1, Number int2, char *str);
+using Number = int;
+using cbtype = int __stdcall(char *what, Number int1, Number int2, char *str);
+int LastArcError = 0;
+int64_t LastArchiveSize = 0, LastFileSize = 0;
+std::string LastArcErrorMsg, LastArcFile;
 
 int __stdcall cb(char *what, Number int1, Number int2, char *str) {
-  debug("\"%\" \"%\" \"%\" \"%\"", what, (uint64_t)int1 << 20,
-        (uint64_t)int2 << 20, str);
-  if (TInstallerInfo::terminateInstallation())
-    std::strcpy(what, "quit");
+  debug(R"("%" "%" "%")", what, (uint64_t)int1 << 20, (uint64_t)int2 << 20);
+  if (!std::strcmp(what, "filename")) {
+    LastArcFile = str;
+    LastFileSize = int1 << 20;
+  } else if (!std::strcmp(what, "total")) {
+    LastArchiveSize = int1 << 20;
+  } else if (!std::strcmp(what, "error")) {
+    debug("error:%:%", int1, str);
+    LastArcError = int1;
+    LastArcErrorMsg = str;
+    ExitThread(int1);
+  }
+  if (TInstallerInfo::terminateInstallation()) {
+    debug("quitting installation");
+    return -127;
+  }
   return 1;
 }
 
 void TInstallerInfo::startInstallation() {
-  if (installerThread_) {
-    debug("can't start installtion twice");
+  debug("starting installation");
+  if (installerRunning_) {
+    debug("can't start installation twice");
     return;
   }
-  installerThread_ = std::make_unique<std::thread>(
-      &TInstallerInfo::startInstallationImpl, this);
-  installerThread_->detach();
+  installerThread_ = std::thread(&TInstallerInfo::startInstallationImpl, this);
 }
 
 void TInstallerInfo::setDestinationFolder(const QString &destinationFolder) {
@@ -210,37 +220,119 @@ void TInstallerInfo::setDestinationFolder(const QString &destinationFolder) {
   emit sizeStatsChanged();
 }
 
-QString TInstallerInfo::destinationFolder() const {
-  return m_destinationFolder;
-}
+QString TInstallerInfo::destinationFolder() { return m_destinationFolder; }
+
+struct ArcDataFile {
+  std::string extractionCmd[20];
+  int PackedSize = 0, Component;
+  std::string FileName;
+  ArcDataFile(std::string line) {
+    int i = 0;
+    line.insert(0, ":");
+    auto insertCmd = [&](auto... c) {
+      assert(i + sizeof...(c) < 20);
+      ((extractionCmd[i++] = c), ...);
+    };
+    insertCmd("x");
+
+    if (auto password = LineSection(line, "Password:"); !password.empty()) {
+      insertCmd("-p", password);
+    }
+
+    if (auto tmpDir = LineSection(line, "Tmp:"); !tmpDir.empty()) {
+      insertCmd("-w" +
+                TInstallerInfo::expandConstant(tmpDir.c_str()).toStdString());
+    } else {
+      insertCmd("-w" + TInstallerInfo::expandConstant("{tmp}\\").toStdString());
+    }
+
+    if (auto destDir = LineSection(line, "Dest:"); !destDir.empty()) {
+      insertCmd("-dp" +
+                TInstallerInfo::expandConstant(destDir.c_str()).toStdString());
+    } else {
+      insertCmd("-dp" +
+                TInstallerInfo::expandConstant("{app}\\").toStdString());
+    }
+
+    insertCmd("--", FileName = TInstallerInfo::expandConstant(
+                                   LineSection(line, ":").c_str())
+                                   .toStdString());
+  
+    Component = std::stoi(LineSection(line, "Comp:", "0"));
+  }
+};
 
 void TInstallerInfo::startInstallationImpl() try {
   installerRunning_ = true;
-  gupta::destructor resetStatus = [&]() { installerRunning_ = false; };
+  SCOPE_EXIT { installerRunning_ = false; };
+
+  using extractor = int(__cdecl *)(cbtype *, ...);
+  using unloadDll_t = void(__cdecl *)();
 
   gupta::DynamicLib unarcdll(
       Resources->extractTemporaryFile("dll/unarc.dll").wstring().c_str());
   if (!unarcdll.isLoaded())
     throw std::runtime_error("failed to load unarc.dll");
 
-  using extractor = int(__cdecl *)(cbtype *, ...);
-  using unloadDll_t = void(__cdecl *)();
   auto FreeArcExtract =
       (extractor)GetProcAddress(unarcdll.module(), "FreeArcExtract");
   if (!FreeArcExtract)
     throw std::runtime_error{"failed to export FreeArcExport"};
 
-  char *s[] = {"x", "E:/test.arc", "\0"};
-  auto r = FreeArcExtract(cb, s[0], s[1], s[2], NULL);
-  if (r)
-    throw std::runtime_error{"FreeArcExtract Failed with error code: " +
-                             std::to_string(r)};
-
   auto UnloadDll = (unloadDll_t)GetProcAddress(unarcdll.module(), "UnloadDLL");
-  if (!UnloadDll)
-    throw std::runtime_error{"failed to load UnloadDll"};
-  UnloadDll();
+  assert(UnloadDll);
+  SCOPE_EXIT { UnloadDll(); };
 
+  std::vector<ArcDataFile> ArcDataFiles;
+  for (std::string line = Resources->GetIniValue(
+           "Files", "File" + std::to_string(ArcDataFiles.size() + 1), "");
+       !line.empty();
+       line = Resources->GetIniValue(
+           "Files", "File" + std::to_string(ArcDataFiles.size() + 1), "")) {
+    ArcDataFiles.emplace_back(line);
+  }
+
+  std::string LastError;
+  std::thread arcExtract([&]() {
+    for (auto &file : ArcDataFiles) {
+      bool checked = file.Component > 0 && file.Component < TInstallerInfo::languagePack
+          ? TInstallerInfo[]
+      if (!std::filesystem::exists(file.FileName)) {
+        LastError = gupta::format("% doesn't exist", file.FileName);
+        return;
+      }
+      if (auto ret = FreeArcExtract(cb, "x", file.FileName.c_str(), nullptr);
+          ret) {
+        LastError =
+            gupta::format("% failed to retrieve size, FREEARC_CODE: %(%)",
+                          file.FileName, ret, LastArcErrorMsg);
+      } else {
+        file.PackedSize = LastArchiveSize;
+        debug("%: unpack size = %", file.FileName, file.PackedSize);
+      }
+    }
+
+    for (auto &file : ArcDataFiles) {
+      char *c[20];
+      int i;
+      for (i = 0; i < 20; i++) {
+        file.extractionCmd[i].push_back(0);
+        c[i] = file.extractionCmd[i].data();
+      }
+      if ((i = FreeArcExtract(cb, c[0], c[1], c[2], c[3], c[4], c[5], c[6],
+                              c[7], c[8], c[9], c[10], c[11], c[12], c[13],
+                              c[14], c[15], c[16], c[17], c[18], c[19],
+                              nullptr))) {
+
+        LastError = "FreeArcExtract Failed with error - " + std::to_string(i);
+        break;
+      }
+    }
+  });
+  arcExtract.join();
+  if (LastError.empty())
+    throw std::runtime_error{LastError};
+  debug("done installation");
 } catch (std::exception &e) {
   emit installationFailed(e.what());
 }
