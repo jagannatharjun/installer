@@ -30,6 +30,13 @@ public:
       : QObject(parent), name{std::move(s)}, checked{Checked} {}
 
   using QObject::QObject;
+  virtual ~TComponent();
+};
+
+class TRedistributable : public TComponent {
+public:
+  std::string Cmd;
+  using TComponent::TComponent;
 };
 
 class TInstallerInfo : public QObject {
@@ -46,11 +53,23 @@ class TInstallerInfo : public QObject {
   Q_PROPERTY(int requiredSize READ requiredSize NOTIFY sizeStatsChanged);
   Q_PROPERTY(int diskTotalSpace READ diskTotalSpace NOTIFY sizeStatsChanged);
   Q_PROPERTY(int diskFreeSpace READ diskFreeSpace NOTIFY sizeStatsChanged);
+ // Q_PROPERTY(double progress READ progress NOTIFY progressChanged);
+ // Q_PROPERTY(QString remainingTime READ remainingTime NOTIFY progressChanged)
+ // Q_PROPERTY(QString totalTime READ totalTime NOTIFY progressChanged)
+
 
 public:
   using ResourcePtr = std::shared_ptr<TResources>;
   explicit TInstallerInfo(QObject *parent = nullptr);
   ~TInstallerInfo();
+
+  enum class TInstallerStates {
+    InstallationNeverStarted,
+    InstallationRunning,
+    InstallationFinished,
+    InstallationFailed,
+    InstallationStopped
+  };
 
   QString applicationName();
   QString applicationDescription();
@@ -70,16 +89,21 @@ public:
   Q_INVOKABLE QString gpuText();
   Q_INVOKABLE int cpuUsage();
   Q_INVOKABLE static QString expandConstant(QString);
+  Q_INVOKABLE double progress();
+  Q_INVOKABLE QString remainingTime() { return remainingTime_; }
+  Q_INVOKABLE QString totalTime() { return totalTime_; }
   Q_INVOKABLE void startInstallation();
 
   void setDestinationFolder(const QString &destinationFolder);
   static QString destinationFolder();
 
+  void setProgress(double progress);
+
   static void setResources(ResourcePtr p);
   static void setTerminateInstallation(bool t) { terminateInstallation_ = t; }
   static bool terminateInstallation() { return terminateInstallation_; }
   static auto resources() { return Resources; }
-  static QList<QObject *> componentsPack, languagePack;
+  static QList<QObject *> componentsPack, languagePack, redestribPack;
 
 signals:
   void applicationNameChanged();
@@ -88,6 +112,7 @@ signals:
   void themeColorChanged();
   void sizeStatsChanged();
   void destinationFolderChanged();
+  void progressChanged();
 
   void installationFailed(QString msg);
   void installationCompleted(QString msg);
@@ -100,8 +125,11 @@ private:
   static void setDestinationFolderImpl(const QString &destinationFolder);
   static bool terminateInstallation_;
 
+  double Progress_ = 0;
   std::thread installerThread_;
   bool installerRunning_ = false;
+  QString remainingTime_, totalTime_;
+  TInstallerStates installerState_ = TInstallerStates::InstallationNeverStarted;
   void startInstallationImpl();
 };
 

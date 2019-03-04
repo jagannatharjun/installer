@@ -26,17 +26,20 @@ Item {
         onInstallationFailed: {
             console.log(msg)
         }
+        onInstallationCompleted: {
+          staticDesign.pageNumber++;
+        }
     }
 
 
 
     property var pageSources: [
-    //    "file:///E:/Cpp/Projects/Gui/installer/Overview.qml",
-    //    'file:///E:/Cpp/Projects/Gui/installer/Directory.qml',
-    //    'file:///E:/Cpp/Projects/Gui/installer/Components.qml',
-    //    'file:///E:/Cpp/Projects/Gui/installer/Requirements.qml',
+        "file:///E:/Cpp/Projects/Gui/installer/Overview.qml",
+        'file:///E:/Cpp/Projects/Gui/installer/Directory.qml',
+        'file:///E:/Cpp/Projects/Gui/installer/Components.qml',
+        'file:///E:/Cpp/Projects/Gui/installer/Requirements.qml',
         'file:///E:/Cpp/Projects/Gui/installer/Installation.qml',
-    //    'file:///E:/Cpp/Projects/Gui/installer/Finalization.qml'
+        'file:///E:/Cpp/Projects/Gui/installer/Finalization.qml'
     ]
 
     function readableSize(s, t) {
@@ -72,6 +75,10 @@ Item {
 
     Loader {
         id: page_loader
+        onLoaded: {
+          if (staticDesign.pageNumber == 5) 
+            installer_info.startInstallation();
+        }
     }
 
     Component.onCompleted: {

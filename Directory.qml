@@ -125,6 +125,30 @@ Item {
         }
     }
 
+    Item {
+        width: 320
+        height: 126
+        x: 279
+        y: 294
+        id: redistPackView
+
+        GridView {
+            anchors.fill: parent
+            cellWidth: 164
+            cellHeight: 30
+            flow: GridView.FlowTopToBottom
+            model: redistPackModel
+            interactive: false
+            delegate: CusCheckBox2 {
+                text: "Install " + model.modelData.name
+                checked: model.modelData.checked
+                Component.onCompleted: checked = checked
+                onCheckedChanged: model.modelData.checked = checked
+            }
+        }
+    }
+
+    /*
     CusCheckBox2 {
         x: 281
         y: 294
@@ -134,7 +158,7 @@ Item {
             sastaCircle.startAngle = 90
         }
     }
-
+    
     CusCheckBox2 {
         x: 281
         y: 324
@@ -152,7 +176,7 @@ Item {
         y: 384
         text: 'Install Direct X'
     }
-
+    */
     CusArc {
         id: availDiskSpaceArc
         width: 124

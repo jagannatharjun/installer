@@ -13,6 +13,7 @@
 #include <QQuickItem>
 #include <QQuickView>
 
+#include <algorithm>
 #include <memory>
 
 class TResourcesImageProvider : public QQuickImageProvider {
@@ -58,11 +59,24 @@ TInstallerManager::TInstallerManager(std::shared_ptr<TResources> Resources)
   QQmlContext *rootCtx = quickView->rootContext();
   SHOW(rootCtx);
 
+  // take ownership of packs so that their destruction will be guarrenteed
+  std::for_each(TInstallerInfo::languagePack.begin(),
+                TInstallerInfo::languagePack.end(),
+                [this](auto &o) { o->setParent(this); });
+  std::for_each(TInstallerInfo::componentsPack.begin(),
+                TInstallerInfo::componentsPack.end(),
+                [this](auto &o) { o->setParent(this); });
+  std::for_each(TInstallerInfo::redestribPack.begin(),
+                TInstallerInfo::redestribPack.end(),
+                [this](auto& o) { o->setParent(this); });
+
   rootCtx->setContextProperty(
       "languagePackModel", QVariant::fromValue(TInstallerInfo::languagePack));
   rootCtx->setContextProperty(
       "componentPackModel",
       QVariant::fromValue(TInstallerInfo::componentsPack));
+  rootCtx->setContextProperty(
+      "redistPackModel", QVariant::fromValue(TInstallerInfo::redestribPack));
   // rootCtx->setContextProperty("installer_info", InstallerInfo_);
 
   loadMainQML();

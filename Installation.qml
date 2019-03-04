@@ -7,6 +7,7 @@ Item {
     height: 480
 
     //        installer_info.startInstallation();
+
     Image {
         x: 278
         y: 97
@@ -23,12 +24,6 @@ Item {
             font.pixelSize: 18
             color: "white"
 
-            MouseArea {
-                anchors.fill: parent
-                onClicked: {
-                    installer_info.startInstallation()
-                }
-            }
         }
     }
 
@@ -36,7 +31,6 @@ Item {
         x: 277
         y: 131
         id: currentProgressText
-        text: "Current Progress: "
         font.family: defaultFont.name
         font.pixelSize: 13
         color: "white"
@@ -48,7 +42,7 @@ Item {
         y: 180
         anchors.left: progressBar.left
         id: estimatedTimeText
-        text: "Estimated Time: "
+        text: "Estimated Time: " 
         font.family: defaultFont.name
         font.pixelSize: 13
         color: "white"
@@ -59,12 +53,13 @@ Item {
         y: 180
         anchors.right: progressBar.right
         id: remainingTimeText
-        text: "Remaining Time: "
         font.family: defaultFont.name
         font.pixelSize: 13
         color: "white"
         font.weight: Font.Light
     }
+
+    
 
     Image {
         source: "image://resources/images/loop.png"
@@ -190,6 +185,9 @@ Item {
         onTriggered: {
             cpuUsageText.usage = installer_info.cpuUsage()
             ramUsageText.usage = installer_info.ramUsage()
+            estimatedTimeText.text = "Estimated Time" + installer_info.totalTime()
+            remainingTimeText.text = "Remaining Time: " + installer_info.remainingTime()
+            currentProgressText.text = "Current Progress: " + installer_info.progress().toFixed(2)
         }
     }
 
