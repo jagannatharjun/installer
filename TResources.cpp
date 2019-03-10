@@ -1,7 +1,9 @@
 #include "TResources.hpp"
 #include "debug.h"
+#include <Windows.h>
 #include <cctype>
 #include <cstdio>
+#include <gupta/cleanup.hpp>
 #include <gupta/ini.hpp>
 #include <string_view>
 
@@ -17,8 +19,31 @@ auto myTempDir() {
   return t;
 }
 
+auto getCurrentExecutable() {
+  TResources::path e;
+  wchar_t f[1024] = {};
+  SHOW(GetModuleFileNameW(NULL, f, 1024));
+  return e = f;
+}
+
 TResources::TResources(std::filesystem::path Source)
-    : Source_{std::move(Source)}, TmpFolder_{myTempDir()} {}
+    : Source_{std::move(Source)}, TmpFolder_{myTempDir()} {
+  FILE *exe = std::fopen(getCurrentExecutable().string().c_str(), "rb");
+  if (!exe)
+    throw std::runtime_error{"failed to open exe for resources"};
+  fseek(exe, -sizeof(uint64_t), SEEK_END);
+  uint64_t buf_size = 0;
+  SHOW(fread(&buf_size, sizeof buf_size, 1, exe));
+  SHOW(buf_size);
+  ExeResourceBuf_.resize(buf_size);
+  fseek(exe, buf_size + sizeof uint64_t, SEEK_END);
+  SHOW(fread(ExeResourceBuf_.data(), 1, buf_size, exe));
+  auto archive = gupta::openConcatFileStream(ExeResourceBuf_.data(), buf_size);
+  for (auto f = archive->next_file(); f; f = archive->next_file()) {
+    SHOW(f->path());
+    Files_.emplace_back(std::move(f));
+  }
+}
 
 TResources::~TResources() {
   std::error_code ec;
@@ -27,7 +52,7 @@ TResources::~TResources() {
 }
 
 TResources::path TResources::extractTemporaryFile(TResources::path File) {
-  FileBuf_.resize(0);
+  std::vector<uint8_t> FileBuf_;
   GetFile(File, FileBuf_);
   if (FileBuf_.size() == 0)
     throw std::runtime_error{"Failed to Read \"" + File.string() + "\""};
@@ -92,14 +117,17 @@ TResources::path TResources::TmpFolder() const { return TmpFolder_; }
 
 TResources::buffer_t &TResources::GetFile(TResources::path File,
                                           TResources::buffer_t &buf,
-                                          const char *FileOpenMode) {
-  File = Source_ / File;
-  std::FILE *f = std::fopen(File.string().c_str(), FileOpenMode);
-  if (f) {
-    buf.resize(std::filesystem::file_size(File));
-    fread(&buf[0], 1, buf.size(), f);
-    fclose(f);
-  } else
-    buf.resize(0);
+                                          const char * /*FileOpenMode*/) {
+  gupta::cf_basicfile *requiredfile = nullptr;
+  for (auto &f : Files_)
+    if (f->path() == File) {
+      requiredfile = f.get();
+      break;
+    }
+  if (!requiredfile)
+    throw std::invalid_argument{"can't find " + File.string()};
+  buf.resize(requiredfile->size());
+  assert(requiredfile->read(buf.data(), requiredfile->size()) ==
+         requiredfile->size());
   return buf;
 }

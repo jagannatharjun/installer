@@ -1,6 +1,7 @@
 #ifndef TRESOURCES_HPP
 #define TRESOURCES_HPP
 
+#include <concatfiles.hpp>
 #include <filesystem>
 #include <gupta/ini.hpp>
 #include <map>
@@ -54,7 +55,8 @@ private:
   path Source_, TmpFolder_;
   string MainIni_;
   std::map<string, gupta::ParsedIni> Inis_;
-  buffer_t FileBuf_;
+  buffer_t ExeResourceBuf_;
+  std::vector<std::unique_ptr<gupta::cf_basicfile>> Files_;
 
   buffer_t &GetFile(path File, buffer_t &buf, const char *FileOpenMode);
 };
