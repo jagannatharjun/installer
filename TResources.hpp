@@ -1,11 +1,14 @@
 #ifndef TRESOURCES_HPP
 #define TRESOURCES_HPP
 
-#include <concatfiles.hpp>
 #include <filesystem>
 #include <gupta/ini.hpp>
 #include <map>
 #include <memory>
+
+namespace gupta {
+class cf_basicfile;
+}
 
 // namespace gupta {
 // namespace detail {

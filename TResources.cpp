@@ -2,6 +2,7 @@
 #include "debug.h"
 #include <Windows.h>
 #include <cctype>
+#include <concatfiles.hpp>
 #include <cstdio>
 #include <gupta/cleanup.hpp>
 #include <gupta/ini.hpp>
