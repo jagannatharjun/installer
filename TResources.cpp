@@ -24,7 +24,9 @@ auto getCurrentExecutable() {
   TResources::path e;
   wchar_t f[1024] = {};
   SHOW(GetModuleFileNameW(NULL, f, 1024));
-  return e = f;
+  e = f;
+  SHOW(e.string());
+  return e;
 }
 
 TResources::TResources(std::filesystem::path Source)
@@ -41,9 +43,10 @@ TResources::TResources(std::filesystem::path Source)
   SHOW(fread(ExeResourceBuf_.data(), 1, buf_size, exe));
   auto archive = gupta::openConcatFileStream(ExeResourceBuf_.data(), buf_size);
   for (auto f = archive->next_file(); f; f = archive->next_file()) {
-    SHOW(f->path());
+    SHOW(f->path().string());
     Files_.emplace_back(std::move(f));
   }
+  fclose(exe);
 }
 
 TResources::~TResources() {
