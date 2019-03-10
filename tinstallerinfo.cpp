@@ -1,6 +1,8 @@
 #include "tinstallerinfo.hpp"
 #include "TResources.hpp"
 #include "debug.h"
+#include "shortcut.hpp"
+
 #include <QColor>
 #include <QDebug>
 #include <QProcess>
@@ -20,7 +22,32 @@ std::filesystem::space_info TInstallerInfo::m_driveInfo;
 QString TInstallerInfo::m_destinationFolder;
 QList<QObject *> TInstallerInfo::componentsPack, TInstallerInfo::languagePack,
     TInstallerInfo::redestribPack;
+
+TComponent *TInstallerInfo::desktopShortcut, *TInstallerInfo::startMenuShortcut;
 bool TInstallerInfo::terminateInstallation_ = false;
+
+#include <ShlObj.h>
+std::filesystem::path desktopDirectory() {
+  PWCHAR dpath = NULL;
+  HRESULT hr;
+  SHOW(hr = SHGetKnownFolderPath(FOLDERID_Desktop, 0, NULL, &dpath));
+  if (!SUCCEEDED(hr))
+    return "";
+  std::filesystem::path res(dpath);
+  CoTaskMemFree(dpath);
+  return res;
+}
+
+std::filesystem::path startMenuDirectory() {
+  PWCHAR dpath = NULL;
+  HRESULT hr;
+  SHOW(hr = SHGetKnownFolderPath(FOLDERID_CommonPrograms, 0, NULL, &dpath));
+  if (!SUCCEEDED(hr))
+    return "";
+  std::filesystem::path res(dpath);
+  CoTaskMemFree(dpath);
+  return res;
+}
 
 std::string LineSection(const std::string_view line, const std::string_view str,
                         const std::string &Default = "") {
@@ -269,7 +296,8 @@ void TInstallerInfo::setDestinationFolder(const QString &destinationFolder) {
   emit sizeStatsChanged();
 }
 
-QString TimeToStr(std::clock_t c) {
+QString TimeToStr(long long s) {
+  /*
   QString res;
   const char *r[] = {"second(s)", "minute(s)", "hour(s)"};
   for (int i = 2; i >= 0; i--) {
@@ -279,6 +307,18 @@ QString TimeToStr(std::clock_t c) {
     }
   }
   res.remove(res.size() - 1, 1);
+  return res;
+  */
+  if (s <= 0)
+    return "";
+  QString res;
+  res = QString::number(s % 60) + 's';
+  s /= 60;
+  if (s)
+    res.insert(0, QString::number(s % 60) + "m ");
+  s /= 60;
+  if (s)
+    res.insert(0, QString::number(s) + "h ");
   return res;
 }
 
@@ -292,13 +332,14 @@ inline void TInstallerInfo::setProgress(double progress) {
   auto delta = progress - Progress_;
   auto currentTime = now();
   auto elapsed = std::chrono::duration<double, std::milli>(
-      currentTime - InstallationStartTime).count();
+                     currentTime - InstallationStartTime)
+                     .count();
   auto total = elapsed * 100.0 / progress;
   auto remain = total - elapsed;
   Progress_ = progress;
   totalTime_ = TimeToStr(total / 1000);
   remainingTime_ = TimeToStr(remain / 1000);
- // emit progressChanged();
+  // emit progressChanged();
 }
 
 struct ArcDataFile {
@@ -453,8 +494,12 @@ void TInstallerInfo::startInstallationImpl() try {
     }
   });
   arcExtract.join();
+  if (LastArcErrorMsg.size())
+    LastError = "FREEARC " + LastArcErrorMsg;
   if (LastError.size())
     throw std::runtime_error{LastError};
+  if (terminateInstallation())
+    throw std::runtime_error{"User terminated the Installation"};
 
   for (auto &r : redestribPack) {
     auto rp = dynamic_cast<TRedistributable *>(r);
@@ -463,14 +508,43 @@ void TInstallerInfo::startInstallationImpl() try {
     QProcess::execute(expandConstant(rp->Cmd.c_str()));
   }
 
+  int i = 0;
+  auto desktopDir = desktopDirectory(), startMenuDir = startMenuDirectory();
+  std::string shortCutline;
+  while ((shortCutline = Resources->GetIniValue(
+              "Shortcuts", "Name" + std::to_string(++i), ""))
+             .size()) {
+    shortCutline.insert(0, ":");
+    std::string name = LineSection(shortCutline, ":") + ".lnk";
+    if (name.empty())
+      continue;
+    std::string srcFile =
+        expandConstant(QString(LineSection(shortCutline, "Target:").c_str()))
+            .toStdString();
+    if (srcFile.empty())
+      continue;
+    std::string description = LineSection(shortCutline, "Description:");
+    if (desktopShortcut->checked &&
+        StrToBool(LineSection(shortCutline, "Desktop:", "1"))) {
+      SHOW(CreateLink(srcFile.c_str(), (desktopDir / name).string().c_str(),
+                 description.c_str()));
+    }
+    if (startMenuShortcut->checked &&
+        StrToBool(LineSection(shortCutline, "StartMenu:", "1"))) {
+      SHOW(CreateLink(srcFile.c_str(), (startMenuDir / name).string().c_str(),
+                 description.c_str()));
+    }
+  }
+
   debug("done installation");
   emit installationCompleted(QString::fromStdString(LastError));
 } catch (std::exception &e) {
+  debug("error while installation - %", e.what());
   emit installationFailed(e.what());
 }
 
 void TComponent::setChecked(bool s) {
-  qDebug(__func__);
+  debug("%:%", name, s);
   checked = s;
 }
 

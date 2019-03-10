@@ -53,10 +53,9 @@ class TInstallerInfo : public QObject {
   Q_PROPERTY(int requiredSize READ requiredSize NOTIFY sizeStatsChanged);
   Q_PROPERTY(int diskTotalSpace READ diskTotalSpace NOTIFY sizeStatsChanged);
   Q_PROPERTY(int diskFreeSpace READ diskFreeSpace NOTIFY sizeStatsChanged);
- // Q_PROPERTY(double progress READ progress NOTIFY progressChanged);
- // Q_PROPERTY(QString remainingTime READ remainingTime NOTIFY progressChanged)
- // Q_PROPERTY(QString totalTime READ totalTime NOTIFY progressChanged)
-
+  // Q_PROPERTY(double progress READ progress NOTIFY progressChanged);
+  // Q_PROPERTY(QString remainingTime READ remainingTime NOTIFY progressChanged)
+  // Q_PROPERTY(QString totalTime READ totalTime NOTIFY progressChanged)
 
 public:
   using ResourcePtr = std::shared_ptr<TResources>;
@@ -104,6 +103,7 @@ public:
   static bool terminateInstallation() { return terminateInstallation_; }
   static auto resources() { return Resources; }
   static QList<QObject *> componentsPack, languagePack, redestribPack;
+  static TComponent *desktopShortcut, *startMenuShortcut;
 
 signals:
   void applicationNameChanged();

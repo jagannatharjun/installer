@@ -32,7 +32,7 @@ Item {
     }
 
 
-
+    /*
     property var pageSources: [
         "file:///E:/Cpp/Projects/Gui/installer/Overview.qml",
         'file:///E:/Cpp/Projects/Gui/installer/Directory.qml',
@@ -40,6 +40,15 @@ Item {
         'file:///E:/Cpp/Projects/Gui/installer/Requirements.qml',
         'file:///E:/Cpp/Projects/Gui/installer/Installation.qml',
         'file:///E:/Cpp/Projects/Gui/installer/Finalization.qml'
+    ]
+    */
+    property var pageSources: [
+        "qrc:/Overview.qml",
+        'qrc:/Directory.qml',
+        'qrc:/Components.qml',
+        'qrc:/Requirements.qml',
+        'qrc:/Installation.qml',
+        'qrc:/Finalization.qml'
     ]
 
     function readableSize(s, t) {

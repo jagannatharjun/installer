@@ -100,13 +100,25 @@ Item {
     CusCheckBox {
         x: 279
         y: 204
-        text: "Create Desktop"
+        text: "Create Desktop ShortCut"
+        Component.onCompleted: {
+          checked = desktopShortcut.checked
+        }
+        onCheckedChanged: {
+          desktopShortcut.checked = checked;
+        }
     }
 
     CusCheckBox {
         x: 279
         y: 229
         text: "Start Menu ShortCut"
+        Component.onCompleted: {
+          checked = startMenuShortcut.checked
+        }
+        onCheckedChanged: {
+          startMenuShortcut.checked = checked;
+        }
     }
 
     Image {

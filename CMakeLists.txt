@@ -12,6 +12,7 @@ add_subdirectory(infoware)
 #    target_link_libraries(spacetest stdc++fs)
 #endif()
 
+add_subdirectory(compiler)
 
 find_package(Qt5 COMPONENTS Quick Core Qml QuickWidgets REQUIRED)
 foreach(c Core Sql Widgets Quick Multimedia Qml)
@@ -33,13 +34,12 @@ else()
     message(STATUS "can't find ${CLANG_CL}")
 endif()
 
-
-qt5_add_resources(RESOURCES qml.qrc)
 if (COMPILE_QML)
+    find_package(Qt5QuickCompiler)
     qtquick_compiler_add_resources(RESOURCES qml.qrc)
 endif()
 
-add_executable(mainwindow debug.h main.cpp tinstallerinfo.cpp tinstallerinfo.hpp tinstallermanager.cpp tinstallermanager.hpp TResources.cpp TResources.hpp ${RESOURCES})
+add_executable(mainwindow debug.h main.cpp shortcut.hpp shortcut.cpp tinstallerinfo.cpp tinstallerinfo.hpp tinstallermanager.cpp tinstallermanager.hpp TResources.cpp TResources.hpp ${RESOURCES})
 qt5_use_modules(mainwindow Quick Core Qml QuickWidgets)
 target_link_libraries(mainwindow infoware)
 target_include_directories(mainwindow PRIVATE "E:/Cpp/Projects/Headers/Include")

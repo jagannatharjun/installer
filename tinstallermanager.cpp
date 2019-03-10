@@ -68,7 +68,12 @@ TInstallerManager::TInstallerManager(std::shared_ptr<TResources> Resources)
                 [this](auto &o) { o->setParent(this); });
   std::for_each(TInstallerInfo::redestribPack.begin(),
                 TInstallerInfo::redestribPack.end(),
-                [this](auto& o) { o->setParent(this); });
+                [this](auto &o) { o->setParent(this); });
+
+  TInstallerInfo::desktopShortcut =
+      new TComponent("desktopShortcut", true, this);
+  TInstallerInfo::startMenuShortcut =
+      new TComponent("startMenuShortcut", true, this);
 
   rootCtx->setContextProperty(
       "languagePackModel", QVariant::fromValue(TInstallerInfo::languagePack));
@@ -77,6 +82,11 @@ TInstallerManager::TInstallerManager(std::shared_ptr<TResources> Resources)
       QVariant::fromValue(TInstallerInfo::componentsPack));
   rootCtx->setContextProperty(
       "redistPackModel", QVariant::fromValue(TInstallerInfo::redestribPack));
+  rootCtx->setContextProperty(
+      "desktopShortcut", (TInstallerInfo::desktopShortcut));
+  rootCtx->setContextProperty(
+      "startMenuShortcut",
+      (TInstallerInfo::startMenuShortcut));
   // rootCtx->setContextProperty("installer_info", InstallerInfo_);
 
   loadMainQML();
@@ -102,9 +112,10 @@ bool TInstallerManager::eventFilter(QObject *, QEvent *e) {
 
 void TInstallerManager::loadMainQML() {
   quickView->setSource(QUrl());
-  quickView->engine()->clearComponentCache();
-  quickView->setSource(
-      QUrl::fromLocalFile(R"(E:\Cpp\Projects\Gui\installer\Main.qml)"));
+  quickView->engine()->clearComponentCache(); /*
+   quickView->setSource(
+       QUrl::fromLocalFile(R"(E:\Cpp\Projects\Gui\installer\Main.qml)"));*/
+  quickView->setSource(QUrl(R"(qrc:/Main.qml)"));
   QQuickItem *root = quickView->rootObject();
 
   SHOW(QObject::connect(root, SIGNAL(websiteButtonClicked()), this,

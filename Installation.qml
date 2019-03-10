@@ -179,15 +179,15 @@ Item {
     }
 
     Timer {
-        interval: 500
+        interval: 256
         repeat: true
         running: true
         onTriggered: {
             cpuUsageText.usage = installer_info.cpuUsage()
             ramUsageText.usage = installer_info.ramUsage()
-            estimatedTimeText.text = "Estimated Time" + installer_info.totalTime()
+            estimatedTimeText.text = "Estimated Time: " + installer_info.totalTime()
             remainingTimeText.text = "Remaining Time: " + installer_info.remainingTime()
-            currentProgressText.text = "Current Progress: " + installer_info.progress().toFixed(2)
+            currentProgressText.text = "Current Progress: " + installer_info.progress().toFixed(2) + '%'
         }
     }
 

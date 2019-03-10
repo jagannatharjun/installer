@@ -2,12 +2,10 @@
 #include "tinstallerinfo.hpp"
 #include "tinstallermanager.hpp"
 
-#include <QDebug>
+#include "debug.h"
 #include <QGuiApplication>
 #include <QQmlEngine>
 #include <memory>
-
-#define SHOW(X) qDebug() << #X << ": " << (X);
 
 int main(int argc, char *argv[]) {
   int i;
