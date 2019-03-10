@@ -12,6 +12,12 @@ add_subdirectory(infoware)
 #    target_link_libraries(spacetest stdc++fs)
 #endif()
 
+set(CONCATFILES_DIR E:/Cpp/Projects/concatfiles/concatfiles)
+
+add_subdirectory(${CONCATFILES_DIR}
+                 ${CMAKE_BINARY_DIR}/concatfiles-build
+                 EXCLUDE_FROM_ALL)
+
 add_subdirectory(compiler)
 
 find_package(Qt5 COMPONENTS Quick Core Qml QuickWidgets REQUIRED)
@@ -41,7 +47,7 @@ endif()
 
 add_executable(mainwindow debug.h main.cpp shortcut.hpp shortcut.cpp tinstallerinfo.cpp tinstallerinfo.hpp tinstallermanager.cpp tinstallermanager.hpp TResources.cpp TResources.hpp ${RESOURCES})
 qt5_use_modules(mainwindow Quick Core Qml QuickWidgets)
-target_link_libraries(mainwindow infoware)
+target_link_libraries(mainwindow infoware concatfiles)
 target_include_directories(mainwindow PRIVATE "E:/Cpp/Projects/Headers/Include")
 if (CMAKE_CXX_COMPILER_ID MATCHES "GNU")
     target_link_libraries(mainwindow stdc++fs)
