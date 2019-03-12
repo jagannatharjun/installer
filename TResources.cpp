@@ -123,11 +123,19 @@ TResources::buffer_t &TResources::GetFile(TResources::path File,
                                           TResources::buffer_t &buf,
                                           const char * /*FileOpenMode*/) {
   gupta::cf_basicfile *requiredfile = nullptr;
-  for (auto &f : Files_)
-    if (std::filesystem::equivalent(f->path(), File)) {
+  std::error_code ec;
+  auto fpstr = File.string();
+  for (auto &f : Files_) {
+    auto p = f->path().string();
+    if (std::lexicographical_compare(
+            p.begin(), p.end(), fpstr.begin(), fpstr.end(),
+            [](auto c1, auto c2) { return tolower(c1) < tolower(c2); })) {
       requiredfile = f.get();
       break;
     }
+    SHOW(ec.message());
+  }
+
   if (!requiredfile)
     throw std::invalid_argument{"can't find " + File.string()};
   buf.resize(requiredfile->size());

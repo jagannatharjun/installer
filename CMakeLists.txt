@@ -52,5 +52,7 @@ target_include_directories(mainwindow PRIVATE "E:/Cpp/Projects/Headers/Include")
 if (CMAKE_CXX_COMPILER_ID MATCHES "GNU")
     target_link_libraries(mainwindow stdc++fs)
 endif()
+message("${CMAKE_BINARY_DIR}")
+add_custom_command(TARGET mainwindow POST_BUILD COMMAND "compiler/compiler.exe" WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
 
 ##cotire(mainwindow)
