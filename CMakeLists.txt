@@ -30,7 +30,7 @@ endforeach()
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_CXX_STANDARD 17)
-option(COMPILE_QML "Compile QML" OFF)
+option(COMPILE_QML "Compile QML" ON)
 
 find_program(CLANG_CL name "clang-cl.exe" HINTS ENV "PATH")
 if (CLANG_CL)

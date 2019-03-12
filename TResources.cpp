@@ -39,7 +39,7 @@ TResources::TResources(std::filesystem::path Source)
   SHOW(fread(&buf_size, sizeof buf_size, 1, exe));
   SHOW(buf_size);
   ExeResourceBuf_.resize(buf_size);
-  fseek(exe, buf_size + sizeof uint64_t, SEEK_END);
+  fseek(exe, -(buf_size + sizeof uint64_t), SEEK_END);
   SHOW(fread(ExeResourceBuf_.data(), 1, buf_size, exe));
   auto archive = gupta::openConcatFileStream(ExeResourceBuf_.data(), buf_size);
   for (auto f = archive->next_file(); f; f = archive->next_file()) {
@@ -124,7 +124,7 @@ TResources::buffer_t &TResources::GetFile(TResources::path File,
                                           const char * /*FileOpenMode*/) {
   gupta::cf_basicfile *requiredfile = nullptr;
   for (auto &f : Files_)
-    if (f->path() == File) {
+    if (std::filesystem::equivalent(f->path(), File)) {
       requiredfile = f.get();
       break;
     }
