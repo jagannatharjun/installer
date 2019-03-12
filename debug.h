@@ -17,4 +17,8 @@ std::string to_string(const Obj &o) {
   return (bool)o ? "true" : "false";
 }
 
+static inline std::string to_string(bool b) {
+  return b ? "true" : "false";
+}
+
 #endif // DEBUG_H

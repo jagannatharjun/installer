@@ -16,26 +16,40 @@
 #include <algorithm>
 #include <memory>
 
+
 class TResourcesImageProvider : public QQuickImageProvider {
 public:
   TResourcesImageProvider(std::shared_ptr<TResources> Resources)
-      : Resources{Resources}, QQuickImageProvider(QQuickImageProvider::Pixmap) {
-  }
+      : Resources{Resources}, QQuickImageProvider(QQuickImageProvider::Image) {}
+  QImage requestImage(const QString &id, QSize *size,
+                      const QSize &requestedSize) {
+    auto imagebuf = Resources->GetFile(id.toStdString());
+    auto imagearray = QByteArray::fromRawData(
+        reinterpret_cast<const char *>(imagebuf.data()), imagebuf.size());
+    SHOW(id);
+    SHOW(imagearray.size());
+    auto image = QImage::fromData(imagearray);
+    SHOW(image.isNull());
+    if (size)
+      *size = image.size();
 
+    return image;
+  }
   QPixmap requestPixmap(const QString &id, QSize *size,
                         const QSize &requestedSize) override {
-
+    debug(__func__);
     std::vector<uint8_t> buf;
 
     QPixmap pixmap;
     buf.resize(0);
     Resources->GetFile(id.toStdString(), buf);
-    pixmap.loadFromData(buf.data(), buf.size());
+    SHOW(pixmap.loadFromData(buf.data(), buf.size()));
 
     if (size)
       *size = QSize(pixmap.width(), pixmap.height());
 
     qDebug() << __func__ << ": " << id << " " << buf.size();
+
     if (buf.size() == 0) {
       qDebug() << "failed to read " << id;
     }
@@ -53,7 +67,8 @@ TInstallerManager::TInstallerManager(std::shared_ptr<TResources> Resources)
   quickView->installEventFilter(this);
 
   auto engine = quickView->engine();
-  engine->addImageProvider("resources", new TResourcesImageProvider(Resources));
+  imageProvider = new TResourcesImageProvider(Resources);
+  engine->addImageProvider("resources", imageProvider);
   quickView->setFlag(Qt::FramelessWindowHint);
 
   QQmlContext *rootCtx = quickView->rootContext();
@@ -82,11 +97,10 @@ TInstallerManager::TInstallerManager(std::shared_ptr<TResources> Resources)
       QVariant::fromValue(TInstallerInfo::componentsPack));
   rootCtx->setContextProperty(
       "redistPackModel", QVariant::fromValue(TInstallerInfo::redestribPack));
-  rootCtx->setContextProperty(
-      "desktopShortcut", (TInstallerInfo::desktopShortcut));
-  rootCtx->setContextProperty(
-      "startMenuShortcut",
-      (TInstallerInfo::startMenuShortcut));
+  rootCtx->setContextProperty("desktopShortcut",
+                              (TInstallerInfo::desktopShortcut));
+  rootCtx->setContextProperty("startMenuShortcut",
+                              (TInstallerInfo::startMenuShortcut));
   // rootCtx->setContextProperty("installer_info", InstallerInfo_);
 
   loadMainQML();
@@ -99,7 +113,10 @@ TInstallerManager::TInstallerManager(std::shared_ptr<TResources> Resources)
   QObject::connect(t, &QFileSystemWatcher::directoryChanged, timeout);
 }
 
-TInstallerManager::~TInstallerManager() { delete quickView; }
+TInstallerManager::~TInstallerManager() {
+  delete quickView;
+  // delete imageProvider; // engine will take ownership
+}
 
 bool TInstallerManager::eventFilter(QObject *, QEvent *e) {
   if (e->type() == QEvent::MouseButtonPress) {

@@ -130,6 +130,7 @@ TResources::buffer_t &TResources::GetFile(TResources::path File,
     if (c == '/')
       c = '\\';
   });
+  SHOW(fpstr);
   for (auto &f : Files_) {
     auto p = f->path().string();
     std::for_each(p.begin(), p.end(), [](auto &c) {
@@ -138,6 +139,7 @@ TResources::buffer_t &TResources::GetFile(TResources::path File,
         c = '\\';
     });
     if (p == fpstr) {
+      debug("found %", p);
       requiredfile = f.get();
       break;
     }
@@ -148,7 +150,8 @@ TResources::buffer_t &TResources::GetFile(TResources::path File,
   auto seekablefile = dynamic_cast<gupta::cf_seekablefile *>(requiredfile);
   assert(seekablefile);
   seekablefile->seek(0, SEEK_SET);
-  assert(requiredfile->read(buf.data(), requiredfile->size()) ==
-         requiredfile->size());
+  auto read_sz = requiredfile->read(buf.data(), requiredfile->size());
+  assert(read_sz == requiredfile->size());
+  
   return buf;
 }

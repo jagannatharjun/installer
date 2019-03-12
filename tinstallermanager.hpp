@@ -6,6 +6,7 @@
 
 class QQuickView;
 class TResources;
+class QQuickImageProvider;
 
 class TInstallerManager : public QObject {
   Q_OBJECT
@@ -27,6 +28,7 @@ public slots:
 
 private:
   QQuickView *quickView;
+  QQuickImageProvider* imageProvider;
   std::shared_ptr<TResources> Resources_;
   void loadPageQml(const QUrl &qmlFile);
 };

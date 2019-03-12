@@ -19,6 +19,7 @@ add_subdirectory(${CONCATFILES_DIR}
                  EXCLUDE_FROM_ALL)
 
 add_subdirectory(compiler)
+add_subdirectory(uninstaller)
 
 find_package(Qt5 COMPONENTS Quick Core Qml QuickWidgets REQUIRED)
 foreach(c Core Sql Widgets Quick Multimedia Qml)
@@ -46,6 +47,7 @@ if (COMPILE_QML)
 endif()
 
 add_executable(mainwindow debug.h main.cpp shortcut.hpp shortcut.cpp tinstallerinfo.cpp tinstallerinfo.hpp tinstallermanager.cpp tinstallermanager.hpp TResources.cpp TResources.hpp ${RESOURCES})
+set_property(TARGET mainwindow PROPERTY WIN32_EXECUTABLE ${CMAKE_BUILD_TYPE} == "Release")
 qt5_use_modules(mainwindow Quick Core Qml QuickWidgets)
 target_link_libraries(mainwindow infoware concatfiles)
 target_include_directories(mainwindow PRIVATE "E:/Cpp/Projects/Headers/Include")
@@ -53,6 +55,6 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "GNU")
     target_link_libraries(mainwindow stdc++fs)
 endif()
 message("${CMAKE_BINARY_DIR}")
-add_custom_command(TARGET mainwindow POST_BUILD COMMAND "compiler/compiler.exe" WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+add_custom_command(TARGET mainwindow POST_BUILD DEPENDS compiler COMMAND "compiler/compiler.exe" WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
 
 ##cotire(mainwindow)
