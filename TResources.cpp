@@ -125,20 +125,29 @@ TResources::buffer_t &TResources::GetFile(TResources::path File,
   gupta::cf_basicfile *requiredfile = nullptr;
   std::error_code ec;
   auto fpstr = File.string();
+  std::for_each(fpstr.begin(), fpstr.end(), [](auto &c) {
+    c = ::tolower(c);
+    if (c == '/')
+      c = '\\';
+  });
   for (auto &f : Files_) {
     auto p = f->path().string();
-    if (std::lexicographical_compare(
-            p.begin(), p.end(), fpstr.begin(), fpstr.end(),
-            [](auto c1, auto c2) { return tolower(c1) < tolower(c2); })) {
+    std::for_each(p.begin(), p.end(), [](auto &c) {
+      c = ::tolower(c);
+      if (c == '/')
+        c = '\\';
+    });
+    if (p == fpstr) {
       requiredfile = f.get();
       break;
     }
-    SHOW(ec.message());
   }
-
   if (!requiredfile)
     throw std::invalid_argument{"can't find " + File.string()};
   buf.resize(requiredfile->size());
+  auto seekablefile = dynamic_cast<gupta::cf_seekablefile *>(requiredfile);
+  assert(seekablefile);
+  seekablefile->seek(0, SEEK_SET);
   assert(requiredfile->read(buf.data(), requiredfile->size()) ==
          requiredfile->size());
   return buf;
