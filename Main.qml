@@ -4,10 +4,14 @@ import QtQuick.Controls 2.12
 import QtQuick.Window 2.12
 import Ascent.info 1.0
 
-Item {
+Window  {
+    id: mainwindow
+    objectName: "mainwindow"
     width: 800
     height: 480
     visible: true
+    flags: flags | Qt.FramelessWindowHint
+
 
     signal websiteButtonClicked
     signal facebookButtonClicked
@@ -20,6 +24,13 @@ Item {
     signal nextButtonClicked(int source_page)
     signal currentPageChanged(int source_page)
 
+    onCloseButtonClicked: {
+      close()
+    }
+
+    onMinimizeButtonClicked: {
+      lower();
+    }
 
     Installerinfo {
         id: installer_info

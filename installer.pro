@@ -4,9 +4,8 @@
 #
 #-------------------------------------------------
 
-QT       += gui qml quick widgets core
-
-greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
+QT       += gui qml quick quickcontrols2 core multimedia 
+CONFIG   += qtquickcompiler
 
 TARGET = installer
 TEMPLATE = app
@@ -23,25 +22,51 @@ DEFINES += QT_DEPRECATED_WARNINGS
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
 CONFIG += c++1z
-win32-g++: LIBS += -lstdc++fs
-win32-cl: LIBS += "user32.lib"
+win32-g++: LIBS += -lstdc++fs ../infoware/libinfoware.a
+win32-g++: QMAKE_CXXFLAGS += -march=native
 
-SOURCES += \
-        main.cpp \
-    tinstallermanager.cpp \
-    TResources.cpp  \
-    tinstallerinfo.cpp
+SOURCES +=  main.cpp shortcut.cpp tinstallerinfo.cpp  tinstallermanager.cpp TResources.cpp 
+RESOURCES +=  qml.qrc 
+HEADERS += debug.h shortcut.hpp tinstallerinfo.hpp tinstallermanager.hpp TResources.hpp
 
-RESOURCES =  qml.qrc
+SOURCES += E:/Cpp/Projects/concatfiles/concatfiles/src/concatfiles.cpp
 
-HEADERS += \
-    tinstallermanager.hpp \
-    TResources.hpp \
-    tinstallerinfo.hpp
+SOURCES += infoware\src\cpu\architecture\architecture_non_windows.cpp \
+infoware\src\cpu\architecture\architecture_windows.cpp \
+infoware\src\cpu\endianness\all.cpp \
+infoware\src\cpu\frequency\frequency_non_windows.cpp \
+infoware\src\cpu\frequency\frequency_windows.cpp \
+infoware\src\cpu\instuction_set\instruction_set.cpp \
+infoware\src\cpu\instuction_set\instruction_set_non_windows.cpp \
+infoware\src\cpu\instuction_set\instruction_set_windows.cpp \
+infoware\src\cpu\quantities_cache\quantities_cache_non_windows.cpp \
+infoware\src\cpu\quantities_cache\quantities_cache_windows.cpp \
+infoware\src\cpu\vendor_model_name\vendor_id.cpp \
+infoware\src\cpu\vendor_model_name\vendor_model_name_non_windows.cpp \
+infoware\src\cpu\vendor_model_name\vendor_model_name_windows.cpp \
+infoware\src\detail\cpuid.cpp \
+infoware\src\detail\pci.generated.cpp \
+infoware\src\detail\scope.cpp \
+infoware\src\gpu\memory\blank_all.cpp \
+infoware\src\gpu\memory\d3d.cpp \
+infoware\src\gpu\memory\OpenCL.cpp \
+infoware\src\gpu\memory\OpenGL.cpp \
+infoware\src\system\amounts\amounts_non_windows.cpp \
+infoware\src\system\amounts\windows.cpp \
+infoware\src\system\displays\displays_default_blank.cpp \
+infoware\src\system\displays\displays_windows.cpp \
+infoware\src\system\displays\displays_x11.cpp \
+infoware\src\system\kernel_info\kernel_info_non_windows.cpp \
+infoware\src\system\kernel_info\kernel_info_windows.cpp \
+infoware\src\system\memory\memory_non_windows.cpp \ 
+infoware\src\system\memory\memory_windows.cpp \
+infoware\src\system\OS_info\os_info_non_windows.cpp \
+infoware\src\system\OS_info\os_info_windows.cpp 
 
 INCLUDEPATH += "E:/Cpp/Projects/Headers/Include"
+INCLUDEPATH += "infoware/include"
+INCLUDEPATH += E:/Cpp/Projects/concatfiles/concatfiles/include
 
-# Default rules for deployment.
-qnx: target.path = /tmp/$${TARGET}/bin
-else: unix:!android: target.path = /opt/$${TARGET}/bin
-!isEmpty(target.path): INSTALLS += target
+LIBS += dxgi.lib gdi32.lib version.lib Ole32.lib OleAut32.lib wbemuuid.lib
+DEFINES += INFOWARE_USE_D3D
+

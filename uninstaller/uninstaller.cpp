@@ -1,4 +1,5 @@
 #include <Windows.h>
+#include <filesystem>
 #include <string>
 
 std::string getexename() {
@@ -29,12 +30,20 @@ std::string getappfolder() {
 #define MAIN main()
 #endif
 
-int MAIN {
+int MAIN try {
   auto app = application_name();
   auto msgBoxRet = MessageBoxA(
-      NULL,
-      ("Do you really want to uninstall - " + app + "?").c_str(),
+      NULL, ("Do you really want to uninstall - " + app + "?").c_str(),
       "Uninstaller", MB_YESNO);
   if (msgBoxRet != IDYES)
     return 0;
+  for (auto f : std::filesystem::recursive_directory_iterator{getappfolder()}) {
+    std::filesystem::remove(f);
+  }
+  MessageBoxA(NULL, "Uninstallation finished", "Uninstaller", MB_OK);
+} catch (std::exception &e) {
+  MessageBoxA(
+      NULL,
+      ("Uninstallation failed because - " + std::string(e.what())).c_str(),
+      "Uninstaller", MB_OK);
 }

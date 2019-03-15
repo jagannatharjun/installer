@@ -430,7 +430,7 @@ Image {
         x: 676
         y: 445
 
-        onClicked: visitThreadButtonClicked()
+        onClicked: { Qt.openUrlExternally(installer_info.threadUrl()) }
 
         contentItem: Text {
             text: 'Visit Thread'
@@ -441,7 +441,7 @@ Image {
             verticalAlignment: Text.AlignVCenter
             color: "white"
             leftPadding: 24
-        }
+        }         
 
         background: Rectangle {
             color: installer_info.themeColor
@@ -461,10 +461,14 @@ Image {
         y: 445
         width: 24
         height: 24
+         
 
         MouseArea {
             anchors.fill: parent
-            onClicked: installer.websiteButtonClicked()
+            onClicked: {
+              Qt.openUrlExternally(installer_info.websiteUrl())
+            }
+        
         }
     }
 
@@ -476,9 +480,11 @@ Image {
         width: 24
         height: 24
 
+          
+
         MouseArea {
             anchors.fill: parent
-            onClicked: installer.facebookButtonClicked()
+            onClicked: Qt.openUrlExternally(installer_info.facebookUrl())
         }
     }
 
@@ -519,7 +525,7 @@ Image {
 
         MouseArea {
             anchors.fill: parent
-            onClicked: musicButtonClicked()
+            onClicked: { musicButtonClicked(); console.log('music')}
         }
     }
 }

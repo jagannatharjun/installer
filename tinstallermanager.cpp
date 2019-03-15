@@ -13,9 +13,10 @@
 #include <QQuickItem>
 #include <QQuickView>
 
+#include <QMediaPlayer>
+#include <QMediaPlaylist>
 #include <algorithm>
 #include <memory>
-
 
 class TResourcesImageProvider : public QQuickImageProvider {
 public:
@@ -63,16 +64,23 @@ private:
 TInstallerManager::TInstallerManager(std::shared_ptr<TResources> Resources)
     : Resources_(Resources) {
 
-  quickView = new QQuickView();
-  quickView->installEventFilter(this);
-
-  auto engine = quickView->engine();
   imageProvider = new TResourcesImageProvider(Resources);
-  engine->addImageProvider("resources", imageProvider);
-  quickView->setFlag(Qt::FramelessWindowHint);
+  Application_.addImageProvider("resources", imageProvider);
 
-  QQmlContext *rootCtx = quickView->rootContext();
+  QQmlContext *rootCtx = Application_.rootContext();
   SHOW(rootCtx);
+
+  Player_ = new QMediaPlayer(this);
+  /*connect(player, SIGNAL(positionChanged(qint64)), this,
+          SLOT(positionChanged(qint64)));*/
+  Resources_->extractTemporaryFile("music.mp3");
+  auto playlist = new QMediaPlaylist(this);
+  playlist->addMedia(QUrl::fromLocalFile(QString::fromStdWString(
+      Resources_->extractTemporaryFile("music.mp3").wstring())));
+  playlist->setPlaybackMode(QMediaPlaylist::Loop);
+  Player_->setMedia(playlist);
+  Player_->setVolume(50);
+  Player_->play();
 
   // take ownership of packs so that their destruction will be guarrenteed
   std::for_each(TInstallerInfo::languagePack.begin(),
@@ -103,74 +111,30 @@ TInstallerManager::TInstallerManager(std::shared_ptr<TResources> Resources)
                               (TInstallerInfo::startMenuShortcut));
   // rootCtx->setContextProperty("installer_info", InstallerInfo_);
 
-  loadMainQML();
-  quickView->show();
+  Application_.load("qrc:/Main.qml");
+  QObject *rootObject = Application_.rootObjects().first();
 
-  auto t = new QFileSystemWatcher(this);
+
+  connect(rootObject, SIGNAL(musicButtonClicked()), this,
+          SLOT(musicButtonClicked()));
+
+  /*auto t = new QFileSystemWatcher(this);
   t->addPath(R"(E:\Cpp\Projects\Gui\installer)");
-  auto timeout = [&]() { this->loadMainQML(); };
+  auto timeout = [&]() {
+    Application_.quit();
+    Application_.load("qrc:/Main.qml");
+  };
   QObject::connect(t, &QFileSystemWatcher::fileChanged, timeout);
-  QObject::connect(t, &QFileSystemWatcher::directoryChanged, timeout);
+  QObject::connect(t, &QFileSystemWatcher::directoryChanged, timeout);*/
 }
 
 TInstallerManager::~TInstallerManager() {
-  delete quickView;
   // delete imageProvider; // engine will take ownership
 }
 
-bool TInstallerManager::eventFilter(QObject *, QEvent *e) {
-  if (e->type() == QEvent::MouseButtonPress) {
-    qDebug() << __func__ << ": MouseButtonPress";
-    ReleaseCapture();
-    SendMessage((HWND)quickView->winId(), 0x0112, 0xF012, 0);
-  }
-  return false;
+void TInstallerManager::musicButtonClicked() {
+  if (Player_->state() == QMediaPlayer::PausedState)
+    Player_->play();
+  else
+    Player_->pause();
 }
-
-void TInstallerManager::loadMainQML() {
-  quickView->setSource(QUrl());
-  quickView->engine()->clearComponentCache(); /*
-   quickView->setSource(
-       QUrl::fromLocalFile(R"(E:\Cpp\Projects\Gui\installer\Main.qml)"));*/
-  quickView->setSource(QUrl(R"(qrc:/Main.qml)"));
-  QQuickItem *root = quickView->rootObject();
-
-  SHOW(QObject::connect(root, SIGNAL(websiteButtonClicked()), this,
-                        SLOT(websiteButtonClicked())));
-
-  SHOW(QObject::connect(root, SIGNAL(facebookButtonClicked()), this,
-                        SLOT(facebookButtonClicked())));
-
-  SHOW(QObject::connect(root, SIGNAL(visitThreadButtonClicked()), this,
-                        SLOT(visitThreadButtonClicked())));
-
-  SHOW(QObject::connect(root, SIGNAL(minimizeButtonClicked()), this,
-                        SLOT(minimizeButtonClicked())));
-
-  SHOW(QObject::connect(root, SIGNAL(closeButtonClicked()), this,
-                        SLOT(closeButtonClicked())));
-
-  SHOW(QObject::connect(root, SIGNAL(musicButtonClicked()), this,
-                        SLOT(musicButtonClicked())));
-}
-
-void TInstallerManager::websiteButtonClicked() { qDebug() << __func__; }
-
-void TInstallerManager::facebookButtonClicked() { qDebug() << __func__; }
-
-void TInstallerManager::visitThreadButtonClicked() { qDebug() << __func__; }
-
-void TInstallerManager::minimizeButtonClicked() {
-  qDebug() << __func__;
-  quickView->setWindowStates(quickView->windowStates() | Qt::WindowMinimized);
-}
-
-void TInstallerManager::closeButtonClicked() {
-  qDebug() << __func__;
-  TInstallerInfo::setTerminateInstallation(true);
-  quickView->close();
-}
-
-void TInstallerManager::musicButtonClicked() { qDebug() << __func__; }
-
-void TInstallerManager::loadPageQml(const QUrl &qmlFile) {}

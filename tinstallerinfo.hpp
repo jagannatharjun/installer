@@ -53,6 +53,7 @@ class TInstallerInfo : public QObject {
   Q_PROPERTY(int requiredSize READ requiredSize NOTIFY sizeStatsChanged);
   Q_PROPERTY(int diskTotalSpace READ diskTotalSpace NOTIFY sizeStatsChanged);
   Q_PROPERTY(int diskFreeSpace READ diskFreeSpace NOTIFY sizeStatsChanged);
+
   // Q_PROPERTY(double progress READ progress NOTIFY progressChanged);
   // Q_PROPERTY(QString remainingTime READ remainingTime NOTIFY progressChanged)
   // Q_PROPERTY(QString totalTime READ totalTime NOTIFY progressChanged)
@@ -92,6 +93,9 @@ public:
   Q_INVOKABLE QString remainingTime() { return remainingTime_; }
   Q_INVOKABLE QString totalTime() { return totalTime_; }
   Q_INVOKABLE void startInstallation();
+  Q_INVOKABLE QString threadUrl() { return threadUrl_; }
+  Q_INVOKABLE QString facebookUrl() { return facebookUrl_; }
+  Q_INVOKABLE QString websiteUrl() { return websiteUrl_; }
 
   void setDestinationFolder(const QString &destinationFolder);
   static QString destinationFolder();
@@ -124,6 +128,7 @@ private:
   static QString m_destinationFolder;
   static void setDestinationFolderImpl(const QString &destinationFolder);
   static bool terminateInstallation_;
+  static QString websiteUrl_, facebookUrl_, threadUrl_;
 
   double Progress_ = 0;
   std::thread installerThread_;

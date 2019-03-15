@@ -24,6 +24,8 @@ QList<QObject *> TInstallerInfo::componentsPack, TInstallerInfo::languagePack,
     TInstallerInfo::redestribPack;
 
 TComponent *TInstallerInfo::desktopShortcut, *TInstallerInfo::startMenuShortcut;
+QString TInstallerInfo::websiteUrl_, TInstallerInfo::facebookUrl_,
+    TInstallerInfo::threadUrl_;
 bool TInstallerInfo::terminateInstallation_ = false;
 
 #include <ShlObj.h>
@@ -96,6 +98,21 @@ void TInstallerInfo::setResources(TInstallerInfo::ResourcePtr p) {
   QString pfDir = qgetenv("ProgramFiles").toStdString().c_str();
   setDestinationFolderImpl(
       pfDir + '\\' + Resources->GetIniValue("Setup", "AppName", "").c_str());
+
+  auto getUrl = [](auto type) {
+    auto s = QString::fromStdString(Resources->GetIniValue("Url", type, ""));
+    if (!s.startsWith("https://",Qt::CaseInsensitive))
+      s.insert(0, "https://");
+    return s;
+  };
+
+  websiteUrl_ = getUrl("Website");
+  threadUrl_ = getUrl("Thread");
+  facebookUrl_ = getUrl("Facebook");
+
+  SHOW(websiteUrl_);
+  SHOW(threadUrl_);
+  SHOW(facebookUrl_);
 
   int i = 1;
   std::string name;
@@ -527,12 +544,12 @@ void TInstallerInfo::startInstallationImpl() try {
     if (desktopShortcut->checked &&
         StrToBool(LineSection(shortCutline, "Desktop:", "1"))) {
       SHOW(CreateLink(srcFile.c_str(), (desktopDir / name).string().c_str(),
-                 description.c_str()));
+                      description.c_str()));
     }
     if (startMenuShortcut->checked &&
         StrToBool(LineSection(shortCutline, "StartMenu:", "1"))) {
       SHOW(CreateLink(srcFile.c_str(), (startMenuDir / name).string().c_str(),
-                 description.c_str()));
+                      description.c_str()));
     }
   }
 
