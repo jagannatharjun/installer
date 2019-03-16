@@ -33,7 +33,7 @@ std::vector<uint8_t> ResourcesInBuffer(const gupta::cf_path &ResourcesFolder) {
     buf.resize(TotalReadCount + BufferSize);
   }
   buf.resize(TotalReadCount);
-  std::cout << "Resources size = " << buf.size();
+  std::cout << "Resources size = " << buf.size() << std::endl;
   return buf;
 }
 
@@ -52,8 +52,7 @@ int main() try {
   //#ifdef NDEBUG
   const std::filesystem::path InstallerExePath = INSTALLER_EXE_PATH;
   const std::filesystem::path outInstallerExe = OUT_INSTALLER_EXE;
-  const std::filesystem::path ResourcesFolder =
-      R"(E:\Cpp\Projects\Gui\installer\build\Deploy\Resources)";
+  const std::filesystem::path ResourcesFolder = RESOURCES_FOLDER;
   //#else
   //  const auto InstallerExePath = "mainwindow.exe";
   //  const auto outInstallerExe = InstallerExePath;
@@ -130,7 +129,7 @@ int main() try {
     auto icon_file = ResourcesFolder / "..\\icon.ico";
     changeIcon(outInstallerExe, icon_file);
 
-    auto uninstaller_res = ResourcesFolder / "..\\res\\uninstaller_res.exe";
+    auto uninstaller_res = ResourcesFolder / UNINSTALLER_EXE;
     auto uninstaller = ResourcesFolder / ("private\\uninstaller.exe");
     SHOW(uninstaller);
     if (!exists(uninstaller.parent_path()))
@@ -144,12 +143,14 @@ int main() try {
     execute(makeRcEditCmd(uninstaller.string(), "--set-resource-string", "11",
                           app_name));
 
+#ifdef NDEBUG
     execute(makeRcEditCmd(outInstallerExe.string(),
                           "--set-requested-execution-level",
                           "requireAdministrator"));
     execute(makeRcEditCmd(uninstaller.string(),
                           "--set-requested-execution-level",
                           "requireAdministrator"));
+#endif
   }
 
   writeResources(ResourcesFolder, outInstallerExe);

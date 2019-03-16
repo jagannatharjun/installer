@@ -64,9 +64,8 @@ TInstallerManager::TInstallerManager(std::shared_ptr<TResources> Resources)
   SHOW(rootCtx);
 
   Player_ = new QMediaPlayer(this);
-  /*connect(player, SIGNAL(positionChanged(qint64)), this,
-          SLOT(positionChanged(qint64)));*/
   Resources_->extractTemporaryFile("music.mp3");
+
   auto playlist = new QMediaPlaylist(this);
   playlist->addMedia(QUrl::fromLocalFile(QString::fromStdWString(
       Resources_->extractTemporaryFile("music.mp3").wstring())));

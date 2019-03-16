@@ -168,12 +168,13 @@ TResources::buffer_t &TResources::GetFile(TResources::path File,
   if (!requiredfile)
     throw std::invalid_argument{"can't find " + File.string()};
   buf.resize(requiredfile->size());
+
   auto seekablefile = dynamic_cast<gupta::cf_seekablefile *>(requiredfile);
   assert(seekablefile);
   seekablefile->seek(0, SEEK_SET);
+
   auto read_sz = requiredfile->read(buf.data(), requiredfile->size());
   assert(read_sz == requiredfile->size());
-
   return buf;
 }
 

@@ -292,7 +292,7 @@ int __stdcall cb(char *what, Number int1, Number int2, char *str) {
     LastArcErrorMsg = str;
     ExitThread(int1); // unarc will loop infinite when error happens
   }
-  if (TInstallerInfo::terminateInstallation()) {
+  if (TInstallerInfo::isTerminateInstallation()) {
     debug("quitting installation");
     return -127;
   }
@@ -359,7 +359,7 @@ inline void TInstallerInfo::setProgress(double progress) {
   remainingTime_ = TimeToStr(remain / 1000);
   SHOW(totalTime_);
   SHOW(remainingTime_);
-  // emit progressChanged();
+  emit progressChanged();
 }
 
 struct ArcDataFile {
@@ -394,6 +394,12 @@ struct ArcDataFile {
     } else {
       insertCmd("-dp" +
                 TInstallerInfo::expandConstant("{app}\\").toStdString());
+    }
+
+    if (auto cfg =
+            TInstallerInfo::expandConstant("{tmp}\\arc.ini").toStdString();
+        std::filesystem::exists(cfg)) {
+      insertCmd("-cfg" + cfg);
     }
 
     insertCmd("--", FileName = TInstallerInfo::expandConstant(
@@ -518,7 +524,7 @@ void TInstallerInfo::startInstallationImpl() try {
     LastError = "FREEARC " + LastArcErrorMsg;
   if (LastError.size())
     throw std::runtime_error{LastError};
-  if (terminateInstallation())
+  if (isTerminateInstallation())
     throw std::runtime_error{"User terminated the Installation"};
 
   for (auto &r : redestribPack) {

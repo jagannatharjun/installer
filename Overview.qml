@@ -125,13 +125,15 @@ Item {
         height: 59
         x: 599
         y: 359 - parent.y
-        color: installer_info.themeColor
+        color: marea.containsMouse ? installer_info.themeColor : "#18191d"
 
         MouseArea {
+            id: marea
             anchors.fill: parent
             onClicked: {
                 nextButtonClicked(1)
             }
+            hoverEnabled: true
         }
 
         Image {

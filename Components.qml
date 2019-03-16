@@ -208,11 +208,14 @@ Item {
         height: 59
         x: 599
         y: 359
-        color: installer_info.themeColor
+        color: marea.containsMouse ? installer_info.themeColor : "#18191d"
 
-        MouseArea {
+
+        MouseArea{
             anchors.fill: parent
+            id: marea
             onClicked: nextButtonClicked(pageId)
+            hoverEnabled: true
         }
     }
 
@@ -224,7 +227,7 @@ Item {
 
     Text {
         x: 622
-        y: 372
+        y: 368
         font.family: defaultFont.name
         font.pixelSize: 21
         font.weight: Font.ExtraLight
@@ -241,5 +244,6 @@ Item {
             font.pixelSize: 12
             font.weight: Font.Light
         }
+
     }
 }

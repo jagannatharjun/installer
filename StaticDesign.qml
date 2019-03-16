@@ -429,11 +429,14 @@ Image {
         height: 24
         x: 676
         y: 445
+        id: visitThreadBtn
 
         onClicked: { Qt.openUrlExternally(installer_info.threadUrl()) }
 
         contentItem: Text {
             text: 'Visit Thread'
+            anchors.left: parent.left
+            anchors.right: parent.right
             font.family: defaultFont.name
             font.pointSize: 9
             font.capitalization: Font.AllUppercase
@@ -441,15 +444,20 @@ Image {
             verticalAlignment: Text.AlignVCenter
             color: "white"
             leftPadding: 24
-        }         
+        }
+
 
         background: Rectangle {
-            color: installer_info.themeColor
+            color: visitThreadBtn.hovered ? installer_info.themeColor : "#18191d"
 
             Image {
                 source: "image://resources/images/thread_icon.png"
-                y: 2
-                x: 8
+
+                anchors.verticalCenter:  parent.verticalCenter
+                anchors.left: parent.left
+                anchors.margins: 6
+
+
             }
         }
     }

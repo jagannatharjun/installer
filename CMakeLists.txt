@@ -53,6 +53,6 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "GNU")
     target_link_libraries(installer stdc++fs)
 endif()
 message("${CMAKE_BINARY_DIR}")
-add_custom_command(TARGET installer POST_BUILD DEPENDS compiler DEPENDS uninstaller COMMAND "compiler/compiler.exe" WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+add_custom_command(TARGET installer POST_BUILD MAIN_DEPENDENCY DEPENDS compiler uninstaller COMMAND "compiler/compiler.exe" WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
 
 ##cotire(mainwindow)

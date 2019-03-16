@@ -187,7 +187,8 @@ Item {
             ramUsageText.usage = installer_info.ramUsage()
             estimatedTimeText.text = "Estimated Time: " + installer_info.totalTime()
             remainingTimeText.text = "Remaining Time: " + installer_info.remainingTime()
-            currentProgressText.text = "Current Progress: " + installer_info.progress().toFixed(2) + '%'
+            currentProgressText.text = "Current Progress: " + installer_info.getProgress().toFixed(2) + '%'
+            progressBar.progress = installer_info.getProgress()
         }
     }
 
@@ -270,7 +271,7 @@ Item {
             anchors.top: parent.top
             anchors.left: parent.left
             anchors.bottom: parent.bottom
-            width: 497 * progressBar.progress / 1000.0
+            width: 497 * progressBar.progress / 100.0
 
             anchors.margins: parent.border.width + 1
             color: installer_info.themeColor

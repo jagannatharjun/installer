@@ -24,8 +24,10 @@ Window  {
     signal nextButtonClicked(int source_page)
     signal currentPageChanged(int source_page)
 
+
     onCloseButtonClicked: {
-      close()
+      installer_info.terminateInstallation(true);
+        close()
     }
 
     onMinimizeButtonClicked: {

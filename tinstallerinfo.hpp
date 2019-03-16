@@ -54,7 +54,7 @@ class TInstallerInfo : public QObject {
   Q_PROPERTY(int diskTotalSpace READ diskTotalSpace NOTIFY sizeStatsChanged);
   Q_PROPERTY(int diskFreeSpace READ diskFreeSpace NOTIFY sizeStatsChanged);
 
-  // Q_PROPERTY(double progress READ progress NOTIFY progressChanged);
+  Q_PROPERTY(double progress READ progress NOTIFY progressChanged);
   // Q_PROPERTY(QString remainingTime READ remainingTime NOTIFY progressChanged)
   // Q_PROPERTY(QString totalTime READ totalTime NOTIFY progressChanged)
 
@@ -89,13 +89,21 @@ public:
   Q_INVOKABLE QString gpuText();
   Q_INVOKABLE int cpuUsage();
   Q_INVOKABLE static QString expandConstant(QString);
-  Q_INVOKABLE double progress();
+  double progress();
   Q_INVOKABLE QString remainingTime() { return remainingTime_; }
   Q_INVOKABLE QString totalTime() { return totalTime_; }
   Q_INVOKABLE void startInstallation();
   Q_INVOKABLE QString threadUrl() { return threadUrl_; }
   Q_INVOKABLE QString facebookUrl() { return facebookUrl_; }
   Q_INVOKABLE QString websiteUrl() { return websiteUrl_; }
+  Q_INVOKABLE static void terminateInstallation() {
+    terminateInstallation_ = true;
+    // installerState_ = TInstallerStates::InstallationStopped;
+  }
+  Q_INVOKABLE static bool isTerminateInstallation() {
+    return terminateInstallation_;
+  }
+  Q_INVOKABLE double getProgress() { return progress(); }
 
   void setDestinationFolder(const QString &destinationFolder);
   static QString destinationFolder();
@@ -103,8 +111,6 @@ public:
   void setProgress(double progress);
 
   static void setResources(ResourcePtr p);
-  static void setTerminateInstallation(bool t) { terminateInstallation_ = t; }
-  static bool terminateInstallation() { return terminateInstallation_; }
   static auto resources() { return Resources; }
   static QList<QObject *> componentsPack, languagePack, redestribPack;
   static TComponent *desktopShortcut, *startMenuShortcut;
