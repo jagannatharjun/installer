@@ -35,7 +35,9 @@ public:
   TResources(path Source);
   ~TResources();
 
+  path extractFile(path DestFile, const path &SrcFile);
   path extractTemporaryFile(path File);
+  void extractTemporaryFiles(const char *WildCard);
 
   buffer_t GetFile(path File);
   buffer_t GetFileText(path File);
@@ -62,6 +64,7 @@ private:
   std::vector<std::unique_ptr<gupta::cf_basicfile>> Files_;
 
   buffer_t &GetFile(path File, buffer_t &buf, const char *FileOpenMode);
+  std::vector<gupta::cf_basicfile *> GetFiles(std::string WildCard);
 };
 
 #endif // TRESOURCES_HPP

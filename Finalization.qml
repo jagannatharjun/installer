@@ -51,7 +51,7 @@ Item {
         font.weight: Font.Light
         color: "white"
 
-        text : "Repack has been installed successfully!\n\nYOU CAN LAUNCH THE GAME USING DESKTOP SHORTCUT, STARTMENU SHORTCUT OR EXECUTABLE FILE IN GAME DIRECTORY\n\nTotal Time Taken: 1h 38m"
+        text : "Repack has been installed successfully!\n\nYOU CAN LAUNCH THE GAME USING DESKTOP SHORTCUT, STARTMENU SHORTCUT OR EXECUTABLE FILE IN GAME DIRECTORY\n\nTotal Time Taken: " + installer_info.totalTime()
     }
 
     Image {

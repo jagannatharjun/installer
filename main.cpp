@@ -19,6 +19,8 @@ int main(int argc, char *argv[]) {
 
     SHOW(qmlRegisterType<TInstallerInfo>("Ascent.info", 1, 0, "Installerinfo"));
     Resources->setMainIni("Setup.ini");
+    Resources->extractTemporaryFiles("dll/*");
+
     TInstallerInfo::setResources(Resources);
     TInstallerManager installer(Resources);
 

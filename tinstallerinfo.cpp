@@ -14,6 +14,7 @@
 #include <gupta/dll.hpp>
 #include <infoware/infoware.hpp>
 
+#include "WinReg/WinReg.hpp"
 #include <functional>
 #include <thread>
 
@@ -101,7 +102,7 @@ void TInstallerInfo::setResources(TInstallerInfo::ResourcePtr p) {
 
   auto getUrl = [](auto type) {
     auto s = QString::fromStdString(Resources->GetIniValue("Url", type, ""));
-    if (!s.startsWith("https://",Qt::CaseInsensitive))
+    if (!s.startsWith("https://", Qt::CaseInsensitive))
       s.insert(0, "https://");
     return s;
   };
@@ -356,6 +357,8 @@ inline void TInstallerInfo::setProgress(double progress) {
   Progress_ = progress;
   totalTime_ = TimeToStr(total / 1000);
   remainingTime_ = TimeToStr(remain / 1000);
+  SHOW(totalTime_);
+  SHOW(remainingTime_);
   // emit progressChanged();
 }
 
@@ -431,6 +434,7 @@ struct ArcDataFile {
 
 void TInstallerInfo::startInstallationImpl() try {
   installerRunning_ = true;
+  InstallationStartTime = now();
   installerState_ = TInstallerStates::InstallationRunning;
   SCOPE_EXIT { installerRunning_ = false; };
   SCOPE_SUCCESS { installerState_ = TInstallerStates::InstallationFinished; };
@@ -488,7 +492,6 @@ void TInstallerInfo::startInstallationImpl() try {
     }
 
     SHOW(TotalWriteSize);
-    InstallationStartTime = now();
     for (auto &file : ArcDataFiles) {
       if (!file.Install)
         continue;
@@ -525,6 +528,7 @@ void TInstallerInfo::startInstallationImpl() try {
     QProcess::execute(expandConstant(rp->Cmd.c_str()));
   }
 
+  debug("creating shortcuts");
   int i = 0;
   auto desktopDir = desktopDirectory(), startMenuDir = startMenuDirectory();
   std::string shortCutline;
@@ -553,8 +557,25 @@ void TInstallerInfo::startInstallationImpl() try {
     }
   }
 
+  debug("adding uninstaller reg keys");
+  auto uninstaller_path = Resources->extractFile(
+      TResources::path(destinationFolder().toStdWString()) /
+          "Uninstall\\uninstaller.exe",
+      "private\\uninstaller.exe");
+
+  winreg::RegKey UninstallKey{
+      HKEY_LOCAL_MACHINE,
+      LR"(Software\Microsoft\Windows\CurrentVersion\Uninstall\)" +
+          applicationName().toStdWString()};
+
+  UninstallKey.SetStringValue(L"DisplayName", applicationName().toStdWString());
+  UninstallKey.SetStringValue(L"UninstallString",
+                              uninstaller_path.wstring().c_str());
+
   debug("done installation");
+  setProgress(100);
   emit installationCompleted(QString::fromStdString(LastError));
+
 } catch (std::exception &e) {
   debug("error while installation - %", e.what());
   emit installationFailed(e.what());

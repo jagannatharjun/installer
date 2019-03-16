@@ -39,7 +39,7 @@ TResources::TResources(std::filesystem::path Source)
   SHOW(fread(&buf_size, sizeof buf_size, 1, exe));
   SHOW(buf_size);
   ExeResourceBuf_.resize(buf_size);
-  fseek(exe, -(buf_size + sizeof (uint64_t)), SEEK_END);
+  fseek(exe, -(buf_size + sizeof(uint64_t)), SEEK_END);
   SHOW(fread(ExeResourceBuf_.data(), 1, buf_size, exe));
   auto archive = gupta::openConcatFileStream(ExeResourceBuf_.data(), buf_size);
   for (auto f = archive->next_file(); f; f = archive->next_file()) {
@@ -55,6 +55,21 @@ TResources::~TResources() {
   SHOW(ec.message());
 }
 
+TResources::path TResources::extractFile(TResources::path DestFile,
+                                         const TResources::path &SrcFile) {
+  SHOW(DestFile);
+  SHOW(SrcFile);
+  if (!std::filesystem::exists(DestFile)) {
+    std::filesystem::create_directories(DestFile.parent_path());
+  }
+  if (std::filesystem::is_directory(DestFile))
+    DestFile /= SrcFile.filename();
+  buffer_t file_buf = GetFile(SrcFile);
+  std::FILE *f = std::fopen(DestFile.string().c_str(), "wb");
+  std::fwrite(file_buf.data(), 1, file_buf.size(), f);
+  return DestFile;
+}
+
 TResources::path TResources::extractTemporaryFile(TResources::path File) {
   std::vector<uint8_t> FileBuf_;
   GetFile(File, FileBuf_);
@@ -68,6 +83,12 @@ TResources::path TResources::extractTemporaryFile(TResources::path File) {
   std::fwrite(FileBuf_.data(), 1, FileBuf_.size(), tmpFile);
   fclose(tmpFile);
   return File;
+}
+
+void TResources::extractTemporaryFiles(const char *WildCard) {
+  auto files = GetFiles(WildCard);
+  for (auto f : files)
+    extractTemporaryFile(f->path());
 }
 
 TResources::buffer_t TResources::GetFile(std::filesystem::path File) {
@@ -152,6 +173,32 @@ TResources::buffer_t &TResources::GetFile(TResources::path File,
   seekablefile->seek(0, SEEK_SET);
   auto read_sz = requiredfile->read(buf.data(), requiredfile->size());
   assert(read_sz == requiredfile->size());
-  
+
   return buf;
+}
+
+bool wildcardmatch(const char *s, const char *wildcard) {
+  while (*s && *wildcard) {
+    if (*wildcard == '*') {
+      ++wildcard;
+      while (*s != *wildcard)
+        s++;
+    } else if (*wildcard == '?' || *wildcard == *s) {
+      ++wildcard, ++s;
+    } else
+      break;
+  }
+  return *s == *wildcard;
+}
+
+std::vector<gupta::cf_basicfile *> TResources::GetFiles(std::string WildCard) {
+  std::vector<gupta::cf_basicfile *> result;
+  std::for_each(WildCard.begin(), WildCard.end(),
+                [](auto &c) { c = c == '/' ? '\\' : c; });
+  for (auto &f : Files_)
+    if (wildcardmatch(f->path().string().c_str(), WildCard.c_str())) {
+      debug("% matched with %", WildCard, f->path().string());
+      result.push_back(f.get());
+    }
+  return result;
 }

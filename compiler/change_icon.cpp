@@ -9,11 +9,11 @@
 #define PACKED_STRUCT(name) struct __attribute__((packed)) name
 #endif
 
-PACKED_STRUCT(TIcoItemHeader) {
+PACKED_STRUCT(TIcoItemHeader {
   BYTE Width, Height, Colors, Reserved;
   WORD Planes, BitCount;
   DWORD ImageSize;
-};
+};)
 typedef TIcoItemHeader *PIcoItemHeader;
 
 PACKED_STRUCT(TIcoItem) {
@@ -95,19 +95,15 @@ std::vector<uint8_t> readAll(const char *f) {
   return buf;
 }
 
-void InjectMainIcon(char *Where, char *What) {
-
-}
+void InjectMainIcon(char *Where, char *What) {}
 
 int update_icon(const char *FileName, const char *IconFileName) {
   auto icon_file = readAll(IconFileName);
   printf("IsValidIcon = %d\n", IsValidIcon(icon_file.data(), icon_file.size()));
-
-
+  return 0;
 }
 
 int main() {
-  update_icon("",
-              R"(E:\Inno\Metro\ram\script\Metro-Ui\icon.ico)");
+  update_icon("", R"(E:\Inno\Metro\ram\script\Metro-Ui\icon.ico)");
   system("pause");
 }

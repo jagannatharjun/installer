@@ -1,7 +1,28 @@
+#include <Windows.h>
 #include <concatfiles.hpp>
 #include <cstdio>
+#include <cstdlib>
+#include <gupta/format_io.hpp>
+#include <gupta/ini.hpp>
+#include <iostream>
 
-std::vector<uint8_t> ResourcesInBuffer(gupta::cf_path ResourcesFolder) {
+int execute(std::string cmd) {
+  STARTUPINFO info = {sizeof(info)};
+  PROCESS_INFORMATION processInfo;
+  SHOW(cmd);
+  int r = CreateProcessA(NULL, &cmd[0], NULL, NULL, TRUE, 0, NULL, NULL, &info,
+                         &processInfo);
+  if (r) {
+    WaitForSingleObject(processInfo.hProcess, INFINITE);
+    CloseHandle(processInfo.hProcess);
+    CloseHandle(processInfo.hThread);
+  } else {
+    std::cerr << "failed to execute " << cmd;
+  }
+  return r;
+}
+
+std::vector<uint8_t> ResourcesInBuffer(const gupta::cf_path &ResourcesFolder) {
   auto archive = gupta::concatfiles(ResourcesFolder);
   std::vector<uint8_t> buf;
   gupta::cf_size_type TotalReadCount = 0, ReadCount = 0, BufferSize = 1024;
@@ -12,33 +33,128 @@ std::vector<uint8_t> ResourcesInBuffer(gupta::cf_path ResourcesFolder) {
     buf.resize(TotalReadCount + BufferSize);
   }
   buf.resize(TotalReadCount);
+  std::cout << "Resources size = " << buf.size();
   return buf;
 }
 
-int main() {
-  const auto InstallerExePath = "installer_res.exe";
-	const auto outInstallerExe  = "installer.exe";
-  const auto ResourcesFolder = R"(Resources)";
-
-  if (!std::filesystem::exists(InstallerExePath)) {
-    printf("%s - doesn't exists", InstallerExePath);
-    return 1;
-  }
-  if (!std::filesystem::exists(ResourcesFolder)) {
-    printf("%s - doesn't exists", ResourcesFolder);
-    return 2;
-  }
-
+void writeResources(const std::filesystem::path &ResourcesFolder,
+                    const std::filesystem::path &outInstallerExe) {
   auto ResBuf = ResourcesInBuffer(ResourcesFolder);
-
-	std::filesystem::remove(outInstallerExe);
-	std::filesystem::copy(InstallerExePath, outInstallerExe);
-
-  auto exe = std::fopen(outInstallerExe, "ab");
+  auto exe = std::fopen(outInstallerExe.string().c_str(), "ab");
   fwrite(ResBuf.data(), 1, ResBuf.size(), exe);
   uint64_t BufferSize = ResBuf.size();
   printf("BufferSize = %lld\n", BufferSize);
   fwrite((const uint8_t *)&BufferSize, 1, sizeof BufferSize, exe);
   fclose(exe);
+}
 
+int main() try {
+  //#ifdef NDEBUG
+  const std::filesystem::path InstallerExePath = INSTALLER_EXE_PATH;
+  const std::filesystem::path outInstallerExe = OUT_INSTALLER_EXE;
+  const std::filesystem::path ResourcesFolder =
+      R"(E:\Cpp\Projects\Gui\installer\build\Deploy\Resources)";
+  //#else
+  //  const auto InstallerExePath = "mainwindow.exe";
+  //  const auto outInstallerExe = InstallerExePath;
+  //  const std::filesystem::path ResourcesFolder =
+  //      R"(E:\Cpp\Projects\Gui\installer\build\Deploy\Resources)";
+  //#endif
+
+  SHOW(InstallerExePath.string());
+  SHOW(outInstallerExe.string());
+  SHOW(ResourcesFolder.string());
+
+  if (!std::filesystem::exists(InstallerExePath)) {
+    std::cerr << InstallerExePath << " doesn't exists";
+    return 1;
+  }
+  if (!std::filesystem::exists(ResourcesFolder)) {
+    std::cerr << ResourcesFolder << " doesn't exists";
+    return 2;
+  }
+
+  if (InstallerExePath != outInstallerExe) {
+    std::filesystem::remove(outInstallerExe);
+    std::filesystem::copy(InstallerExePath, outInstallerExe);
+  }
+
+  const auto inifile = ResourcesFolder / "Setup.ini";
+  gupta::ParsedIni ini;
+  {
+    auto ini_file_size = std::filesystem::file_size(inifile);
+    std::vector<uint8_t> ini_buffer;
+    ini_buffer.resize(ini_file_size);
+    auto f = std::fopen(inifile.string().c_str(), "rb");
+    if (!f) {
+      std::cerr << "Failed to open - " << inifile;
+      return 5;
+    }
+    fread(ini_buffer.data(), 1, ini_buffer.size(), f);
+    fclose(f);
+    ini = gupta::ParseIni(ini_buffer);
+  }
+
+  auto app_name = ini["Setup"]["AppName"];
+
+  {
+    using namespace std::filesystem;
+    auto rcedit_exe = ResourcesFolder / "..\\res\\rcedit.exe";
+    if (!exists(rcedit_exe)) {
+      std::cerr << rcedit_exe << " doesn't exit";
+      return 1;
+    }
+
+    auto quoted = [](std::string str) { return "\"" + str + "\""; };
+
+    auto makeRcEditCmd = [&](auto... args) {
+      std::string cmd = "\"" + rcedit_exe.string() + "\" ";
+      ((cmd += quoted(args) + " "), ...);
+      return cmd;
+    };
+
+    auto changeIcon = [&](const path &exe, const path &icon_file) {
+      if (!exists(exe)) {
+        std::cout << exe << "- doesn't exists";
+        exit(1);
+      } else if (!exists(icon_file)) {
+        std::cout << icon_file << " - doesn't exists";
+        exit(2);
+      }
+      auto change_icon_cmd = "\"" + rcedit_exe.string() + "\" \"" +
+                             exe.string() + "\" --set-icon \"" +
+                             icon_file.string() + "\"";
+      execute(change_icon_cmd);
+    };
+
+    auto icon_file = ResourcesFolder / "..\\icon.ico";
+    changeIcon(outInstallerExe, icon_file);
+
+    auto uninstaller_res = ResourcesFolder / "..\\res\\uninstaller_res.exe";
+    auto uninstaller = ResourcesFolder / ("private\\uninstaller.exe");
+    SHOW(uninstaller);
+    if (!exists(uninstaller.parent_path()))
+      create_directories(uninstaller.parent_path());
+    else if (exists(uninstaller))
+      remove(uninstaller);
+
+    copy(uninstaller_res, uninstaller);
+    changeIcon(uninstaller, icon_file);
+
+    execute(makeRcEditCmd(uninstaller.string(), "--set-resource-string", "11",
+                          app_name));
+
+    execute(makeRcEditCmd(outInstallerExe.string(),
+                          "--set-requested-execution-level",
+                          "requireAdministrator"));
+    execute(makeRcEditCmd(uninstaller.string(),
+                          "--set-requested-execution-level",
+                          "requireAdministrator"));
+  }
+
+  writeResources(ResourcesFolder, outInstallerExe);
+
+  std::cout << "done";
+} catch (std::exception &e) {
+  debug("caught(%): %", typeid(e).name(), e.what());
 }

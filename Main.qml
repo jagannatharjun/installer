@@ -10,7 +10,7 @@ Window  {
     width: 800
     height: 480
     visible: true
-    flags: flags | Qt.FramelessWindowHint
+    flags: Qt.Window | Qt.FramelessWindowHint
 
 
     signal websiteButtonClicked
@@ -36,6 +36,7 @@ Window  {
         id: installer_info
         onInstallationFailed: {
             console.log(msg)
+            mainwindow.close();
         }
         onInstallationCompleted: {
           staticDesign.pageNumber++;
@@ -108,6 +109,8 @@ Window  {
     onNextButtonClicked: {
         console.log('next button clicked')
         console.log('source_page = ' + source_page)
+        if (source_page === 6)
+            mainwindow.close();
         staticDesign.pageNumber = source_page + 1
     }
 

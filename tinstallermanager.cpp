@@ -3,15 +3,8 @@
 #include "debug.h"
 #include "tinstallerinfo.hpp"
 
-#include <QDebug>
-#include <QFileSystemWatcher>
-
-#include <QMouseEvent>
 #include <QQmlContext>
-#include <QQmlProperty>
 #include <QQuickImageProvider>
-#include <QQuickItem>
-#include <QQuickView>
 
 #include <QMediaPlayer>
 #include <QMediaPlaylist>
@@ -113,7 +106,6 @@ TInstallerManager::TInstallerManager(std::shared_ptr<TResources> Resources)
 
   Application_.load("qrc:/Main.qml");
   QObject *rootObject = Application_.rootObjects().first();
-
 
   connect(rootObject, SIGNAL(musicButtonClicked()), this,
           SLOT(musicButtonClicked()));
