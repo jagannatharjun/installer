@@ -102,10 +102,10 @@ Item {
         y: 204
         text: "Create Desktop ShortCut"
         Component.onCompleted: {
-          checked = desktopShortcut.checked
+            checked = desktopShortcut.checked
         }
         onCheckedChanged: {
-          desktopShortcut.checked = checked;
+            desktopShortcut.checked = checked
         }
     }
 
@@ -114,10 +114,10 @@ Item {
         y: 229
         text: "Start Menu ShortCut"
         Component.onCompleted: {
-          checked = startMenuShortcut.checked
+            checked = startMenuShortcut.checked
         }
         onCheckedChanged: {
-          startMenuShortcut.checked = checked;
+            startMenuShortcut.checked = checked
         }
     }
 
@@ -160,6 +160,7 @@ Item {
         }
     }
 
+
     /*
     CusCheckBox2 {
         x: 281
@@ -170,7 +171,7 @@ Item {
             sastaCircle.startAngle = 90
         }
     }
-    
+
     CusCheckBox2 {
         x: 281
         y: 324
@@ -282,6 +283,7 @@ Item {
             ]
             anchors.fill: parent
             model: paramModel
+            interactive: false
             spacing: 8
             delegate: CusPropDelegate {
             }
@@ -295,8 +297,7 @@ Item {
         y: 359
         color: marea.containsMouse ? installer_info.themeColor : "#18191d"
 
-
-        MouseArea{
+        MouseArea {
             anchors.fill: parent
             id: marea
             onClicked: nextButtonClicked(pageId)
@@ -329,6 +330,5 @@ Item {
             font.pixelSize: 12
             font.weight: Font.Light
         }
-
     }
 }

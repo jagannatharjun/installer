@@ -32,6 +32,9 @@ Image {
         installationTickOverlay.visible = pageNumber > 5
         finalizationTickOverlay.visible = pageNumber > 6
 
+
+        leftBG.visible = pageNumber != 0;
+
         function tickImageFile(srcPage) {
             if (pageNumber > srcPage)
                 return "image://resources/images/tickblack.png"
@@ -51,16 +54,19 @@ Image {
     }
 
     Image {
+        id: centerBG
         y: 85
         source: "image://resources/images/center.png"
     }
 
     Image {
+        id: upperGradient
         y: 85
         source: "image://resources/images/UpperGradient.png"
     }
 
     Image {
+        id: leftBG
         y: 85
         source: "image://resources/images/Left.png"
     }
@@ -352,6 +358,7 @@ Image {
         height: 31
         x: 11
         y: 441
+        id : back_button
 
         onClicked: {
             backButtonClicked()
@@ -368,7 +375,8 @@ Image {
         }
 
         background: Rectangle {
-            color: "#18191d"
+            color: back_button.hovered ? installer_info.themeColor : "#18191d"
+
         }
     }
 
@@ -377,6 +385,7 @@ Image {
         height: 31
         x: 114
         y: 441
+        id: bottom_close_btn
 
         contentItem: Text {
             text: 'Close'
@@ -389,7 +398,7 @@ Image {
         }
 
         background: Rectangle {
-            color: "#18191d"
+            color: bottom_close_btn.hovered ? installer_info.themeColor : "#18191d"
         }
     }
 
@@ -399,6 +408,10 @@ Image {
         x: 214
         y: 441
         id: about_button
+
+        onClicked: {
+            aboutButtonClicked();
+        }
 
         contentItem: Text {
             text: 'About'
@@ -411,16 +424,7 @@ Image {
         }
 
         background: Rectangle {
-            color: "#18191d"
-        }
-
-        MouseArea {
-            onClicked: {
-                console.log("adf")
-            }
-            onMouseXChanged: {
-                console.log("changed")
-            }
+            color: about_button.hovered ? installer_info.themeColor : "#18191d"
         }
     }
 
@@ -536,6 +540,8 @@ Image {
             onClicked: { musicButtonClicked(); console.log('music')}
         }
     }
+
+
 }
 
 /*##^## Designer {

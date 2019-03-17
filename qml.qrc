@@ -12,5 +12,6 @@
         <file>Requirements.qml</file>
         <file>Installation.qml</file>
         <file>Finalization.qml</file>
+        <file>About.qml</file>
     </qresource>
 </RCC>

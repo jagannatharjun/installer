@@ -10,13 +10,6 @@ Item {
     height: 346
 
 
-    FontLoader {
-        id: defaultFont
-        //name: "Segoe Ui"
-        name: 'ITC Avant Garde Gothic Pro'
-    }
-
-
     Image {
         width: 505
         height: 244
@@ -111,6 +104,7 @@ Item {
                 model: paramModel
                 spacing: 4
                 delegate: CusPropDelegate{}
+                interactive: false
             }
         }
     }

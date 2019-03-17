@@ -249,6 +249,26 @@ QString TInstallerInfo::expandConstant(QString str) {
 
 Q_INVOKABLE double TInstallerInfo::progress() { return Progress_; }
 
+std::vector<uint8_t> GetFile(std::filesystem::path p) {
+  std::vector<uint8_t> b;
+  auto f = std::fopen(p.string().c_str(), "r");
+  b.resize(std::filesystem::file_size(p));
+  std::fread(b.data(), 1, b.size(), f);
+  fclose(f);
+  return b;
+}
+
+QString TInstallerInfo::aboutTxt() {
+  auto txt = Resources->GetFile("About.txt");
+  //  auto txt =
+  //      GetFile("E:/Cpp/Projects/Gui/installer/build/Deploy/Resources/About.txt");
+
+  auto about_txt =
+      QString::fromLocal8Bit(reinterpret_cast<char *>(txt.data()), txt.size());
+  SHOW(about_txt);
+  return about_txt;
+}
+
 using Number = int;
 using cbtype = int __stdcall(char *what, Number int1, Number int2, char *str);
 int LastArcError = 0;

@@ -129,7 +129,7 @@ int main() try {
     auto icon_file = ResourcesFolder / "..\\icon.ico";
     changeIcon(outInstallerExe, icon_file);
 
-    auto uninstaller_res = ResourcesFolder / UNINSTALLER_EXE;
+    auto uninstaller_res = UNINSTALLER_EXE;
     auto uninstaller = ResourcesFolder / ("private\\uninstaller.exe");
     SHOW(uninstaller);
     if (!exists(uninstaller.parent_path()))

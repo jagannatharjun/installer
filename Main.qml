@@ -4,7 +4,7 @@ import QtQuick.Controls 2.12
 import QtQuick.Window 2.12
 import Ascent.info 1.0
 
-Window  {
+Window {
     id: mainwindow
     objectName: "mainwindow"
     width: 800
@@ -12,6 +12,16 @@ Window  {
     visible: true
     flags: Qt.Window | Qt.FramelessWindowHint
 
+    MouseArea {
+            anchors.fill: parent
+            property point lastMousePos: Qt.point(0, 0)
+            onPressed: { lastMousePos = Qt.point(mouseX, mouseY); }
+            onMouseXChanged: mainwindow.x += (mouseX - lastMousePos.x)
+            onMouseYChanged: mainwindow.y += (mouseY - lastMousePos.y)
+        }
+
+    // used for back button at about page
+    property int lastPage: 0
 
     signal websiteButtonClicked
     signal facebookButtonClicked
@@ -20,28 +30,33 @@ Window  {
     signal closeButtonClicked
     signal musicButtonClicked
     signal backButtonClicked
+    signal aboutButtonClicked
 
     signal nextButtonClicked(int source_page)
     signal currentPageChanged(int source_page)
 
+    onAboutButtonClicked: {
+        lastPage = staticDesign.pageNumber
+        staticDesign.pageNumber = 0
+    }
 
     onCloseButtonClicked: {
-      installer_info.terminateInstallation(true);
+        installer_info.terminateInstallation(true)
         close()
     }
 
     onMinimizeButtonClicked: {
-      lower();
+        lower()
     }
 
     Installerinfo {
         id: installer_info
         onInstallationFailed: {
             console.log(msg)
-            mainwindow.close();
+            mainwindow.close()
         }
         onInstallationCompleted: {
-          staticDesign.pageNumber++;
+            staticDesign.pageNumber++
         }
     }
 
@@ -56,14 +71,7 @@ Window  {
         'file:///E:/Cpp/Projects/Gui/installer/Finalization.qml'
     ]
     */
-    property var pageSources: [
-        "qrc:/Overview.qml",
-        'qrc:/Directory.qml',
-        'qrc:/Components.qml',
-        'qrc:/Requirements.qml',
-        'qrc:/Installation.qml',
-        'qrc:/Finalization.qml'
-    ]
+    property var pageSources: ["qrc:/About.qml", "qrc:/Overview.qml", 'qrc:/Directory.qml', 'qrc:/Components.qml', 'qrc:/Requirements.qml', 'qrc:/Installation.qml', 'qrc:/Finalization.qml']
 
     function readableSize(s, t) {
         var m = ['MB', 'GB', 'TB']
@@ -86,21 +94,23 @@ Window  {
     FontLoader {
         id: defaultFont
         //name: "Segoe Ui"
-        name: 'ITC Avant Garde Gothic Pro'
+        //name: 'ITC Avant Garde Gothic Pro'
+
+        source: 'file:///' + installer_info.expandConstant("{tmp}//font.ttf")
     }
 
     StaticDesign {
         id: staticDesign
         onPageNumberChanged: {
-            page_loader.source = pageSources[pageNumber - 1]
+            page_loader.source = pageSources[pageNumber]
         }
     }
 
     Loader {
         id: page_loader
         onLoaded: {
-          if (staticDesign.pageNumber == 5) 
-            installer_info.startInstallation();
+            if (staticDesign.pageNumber == 5)
+                installer_info.startInstallation()
         }
     }
 
@@ -112,13 +122,14 @@ Window  {
         console.log('next button clicked')
         console.log('source_page = ' + source_page)
         if (source_page === 6)
-            mainwindow.close();
+            mainwindow.close()
         staticDesign.pageNumber = source_page + 1
     }
 
     onBackButtonClicked: {
-        if(staticDesign.pageNumber != 1)
+        if (staticDesign.pageNumber == 0) {
+            staticDesign.pageNumber = lastPage
+        } else if (staticDesign.pageNumber != 1 && staticDesign.pageNumber != 5)
             staticDesign.pageNumber = staticDesign.pageNumber - 1
-
     }
 }

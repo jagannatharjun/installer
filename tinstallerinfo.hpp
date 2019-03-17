@@ -90,6 +90,7 @@ public:
   Q_INVOKABLE int cpuUsage();
   Q_INVOKABLE static QString expandConstant(QString);
   double progress();
+  Q_INVOKABLE static QString aboutTxt();
   Q_INVOKABLE QString remainingTime() { return remainingTime_; }
   Q_INVOKABLE QString totalTime() { return totalTime_; }
   Q_INVOKABLE void startInstallation();
