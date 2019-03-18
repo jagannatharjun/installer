@@ -16,6 +16,7 @@
 
 #include "WinReg/WinReg.hpp"
 #include <functional>
+#include <mutex>
 #include <thread>
 
 TInstallerInfo::ResourcePtr TInstallerInfo::Resources;
@@ -23,6 +24,8 @@ std::filesystem::space_info TInstallerInfo::m_driveInfo;
 QString TInstallerInfo::m_destinationFolder;
 QList<QObject *> TInstallerInfo::componentsPack, TInstallerInfo::languagePack,
     TInstallerInfo::redestribPack;
+QColor TInstallerInfo::themeColor_;
+std::mutex unarcMutex;
 
 TComponent *TInstallerInfo::desktopShortcut, *TInstallerInfo::startMenuShortcut;
 QString TInstallerInfo::websiteUrl_, TInstallerInfo::facebookUrl_,
@@ -100,6 +103,8 @@ void TInstallerInfo::setResources(TInstallerInfo::ResourcePtr p) {
   setDestinationFolderImpl(
       pfDir + '\\' + Resources->GetIniValue("Setup", "AppName", "").c_str());
 
+  themeColor_ = QColor(Resources->GetIniValue("Setup", "Color", "").c_str());
+
   auto getUrl = [](auto type) {
     auto s = QString::fromStdString(Resources->GetIniValue("Url", type, ""));
     if (!s.startsWith("https://", Qt::CaseInsensitive))
@@ -145,6 +150,15 @@ void TInstallerInfo::setDestinationFolderImpl(
   m_driveInfo = std::filesystem::space(f, ec);
 }
 
+TInstallerInfo::TInstallerStates TInstallerInfo::getInstallerState() const {
+  return installerState_;
+}
+
+void TInstallerInfo::setStatusMessage(const QString &StatusMessage) {
+  StatusMessage_ = StatusMessage;
+  emit statusMessageChanged();
+}
+
 QString TInstallerInfo::applicationName() {
   return Resources->GetIniValue("Setup", "AppName", "").c_str();
 }
@@ -162,7 +176,7 @@ QString TInstallerInfo::applicationDescription() {
 
 QColor TInstallerInfo::themeColor() {
   // return QColor("#d03a1d");
-  return QColor("#d03a1d");
+  return themeColor_;
 }
 
 int TInstallerInfo::requiredSize() {
@@ -276,7 +290,7 @@ int64_t TotalWriteSize = 0;
 int64_t LastTotalSize = -1, LastOrigSize = -1, LastCompSize = -1,
         LastArcFileSize = -1, LastReadSize = -1, LastWriteSize = -1;
 int64_t LastArchiveWriteSize = 0;
-std::string LastArcErrorMsg, LastArcFile;
+std::string LastArcErrorMsg;
 TInstallerInfo *Installer;
 
 void initailizeGlobalUnarcVars() {
@@ -286,6 +300,8 @@ void initailizeGlobalUnarcVars() {
 }
 
 int __stdcall cb(char *what, Number int1, Number int2, char *str) {
+  unarcMutex.lock();
+  SCOPE_EXIT { unarcMutex.unlock(); };
   debug(R"("%" "%" "%")", what, (uint64_t)int1 << 20, (uint64_t)int2 << 20);
   if (!std::strcmp(what, "read")) {
     LastReadSize = (uint64_t)int1 << 20;
@@ -297,7 +313,7 @@ int __stdcall cb(char *what, Number int1, Number int2, char *str) {
     Installer->setProgress(((LastArchiveWriteSize + LastWriteSize) * 100.0) /
                            TotalWriteSize);
   } else if (!std::strcmp(what, "filename")) {
-    LastArcFile = str;
+    Installer->setStatusMessage("Unpacking " + QString(str));
     LastArcFileSize = (uint64_t)int1 << 20;
     LastArcFileSize = LastWriteSize;
   } else if (!std::strcmp(what, "total")) {
@@ -310,11 +326,17 @@ int __stdcall cb(char *what, Number int1, Number int2, char *str) {
     debug("error:%:%", int1, str);
     LastArcError = int1;
     LastArcErrorMsg = str;
-    ExitThread(int1); // unarc will loop infinite when error happens
+    unarcMutex.unlock(); // exit thread will not call the SCOPE_EXIT
+    ExitThread(int1);    // unarc will loop infinite when error happens
   }
   if (TInstallerInfo::isTerminateInstallation()) {
     debug("quitting installation");
     return -127;
+  }
+  while (Installer->getInstallerState() ==
+         TInstallerInfo::TInstallerStates::InstallationPaused) {
+    using namespace std::chrono_literals;
+    std::this_thread::sleep_for(100ms);
   }
   return 1;
 }
@@ -334,7 +356,7 @@ void TInstallerInfo::setDestinationFolder(const QString &destinationFolder) {
   emit sizeStatsChanged();
 }
 
-QString TimeToStr(long long s) {
+QString TInstallerInfo::timeToStr(long long s) {
   /*
   QString res;
   const char *r[] = {"second(s)", "minute(s)", "hour(s)"};
@@ -348,7 +370,7 @@ QString TimeToStr(long long s) {
   return res;
   */
   if (s <= 0)
-    return "";
+    return "0s";
   QString res;
   res = QString::number(s % 60) + 's';
   s /= 60;
@@ -360,6 +382,16 @@ QString TimeToStr(long long s) {
   return res;
 }
 
+void TInstallerInfo::pauseInstallation() {
+  if (installerState_ == TInstallerStates::InstallationRunning)
+    installerState_ = TInstallerStates::InstallationPaused;
+}
+
+void TInstallerInfo::resumeInstallation() {
+  if (installerState_ == TInstallerStates::InstallationPaused)
+    installerState_ = TInstallerStates::InstallationRunning;
+}
+
 QString TInstallerInfo::destinationFolder() { return m_destinationFolder; }
 
 decltype(std::chrono::high_resolution_clock::now()) InstallationStartTime;
@@ -367,18 +399,15 @@ auto now() { return std::chrono::high_resolution_clock::now(); }
 
 inline void TInstallerInfo::setProgress(double progress) {
   SHOW(progress);
-  auto delta = progress - Progress_;
   auto currentTime = now();
   auto elapsed = std::chrono::duration<double, std::milli>(
                      currentTime - InstallationStartTime)
                      .count();
-  auto total = elapsed * 100.0 / progress;
-  auto remain = total - elapsed;
+  totalTime_ = elapsed * 100.0 / progress;
+  remainingTime_ = totalTime_ - elapsed;
+  totalTime_ /= 1000;
+  remainingTime_ /= 1000;
   Progress_ = progress;
-  totalTime_ = TimeToStr(total / 1000);
-  remainingTime_ = TimeToStr(remain / 1000);
-  SHOW(totalTime_);
-  SHOW(remainingTime_);
   emit progressChanged();
 }
 
@@ -458,13 +487,44 @@ struct ArcDataFile {
   }
 };
 
+#include <powrprof.h>
+int execute(std::string cmd) {
+  STARTUPINFOA info = {sizeof(info)};
+  PROCESS_INFORMATION processInfo;
+  SHOW(cmd);
+  int r = CreateProcessA(NULL, &cmd[0], NULL, NULL, TRUE, CREATE_NO_WINDOW,
+                         NULL, NULL, &info, &processInfo);
+  if (r) {
+    WaitForSingleObject(processInfo.hProcess, INFINITE);
+    CloseHandle(processInfo.hProcess);
+    CloseHandle(processInfo.hThread);
+  } else {
+    debug() << "failed to execute " << cmd;
+  }
+  return r;
+}
+
 void TInstallerInfo::startInstallationImpl() try {
+
   installerRunning_ = true;
   InstallationStartTime = now();
   installerState_ = TInstallerStates::InstallationRunning;
-  SCOPE_EXIT { installerRunning_ = false; };
+  // extract it before, so that can be called on failure
+  auto uninstaller_path = Resources->extractFile(
+      TResources::path(destinationFolder().toStdWString()) /
+          "Uninstall\\uninstaller.exe",
+      "private\\uninstaller.exe");
+  SCOPE_EXIT {
+    installerRunning_ = false;
+    if (hibernatePCAfterInstallation_)
+      SHOW(SetSuspendState(true, false, false));
+  };
   SCOPE_SUCCESS { installerState_ = TInstallerStates::InstallationFinished; };
-  SCOPE_FAILURE { installerState_ = TInstallerStates::InstallationFailed; };
+  SCOPE_FAILURE {
+    installerState_ = TInstallerStates::InstallationFailed;
+    execute("\"" + uninstaller_path.string() + "\" /silent");
+    // std::filesystem::remove_all(destinationFolder().toStdWString());
+  };
 
   using extractor = int(__cdecl *)(cbtype *, ...);
   using unloadDll_t = void(__cdecl *)();
@@ -555,6 +615,7 @@ void TInstallerInfo::startInstallationImpl() try {
   }
 
   debug("creating shortcuts");
+  setStatusMessage("Creating Shortcuts");
   int i = 0;
   auto desktopDir = desktopDirectory(), startMenuDir = startMenuDirectory();
   std::string shortCutline;
@@ -584,11 +645,7 @@ void TInstallerInfo::startInstallationImpl() try {
   }
 
   debug("adding uninstaller reg keys");
-  auto uninstaller_path = Resources->extractFile(
-      TResources::path(destinationFolder().toStdWString()) /
-          "Uninstall\\uninstaller.exe",
-      "private\\uninstaller.exe");
-
+  setStatusMessage("Creating uninstaller");
   winreg::RegKey UninstallKey{
       HKEY_LOCAL_MACHINE,
       LR"(Software\Microsoft\Windows\CurrentVersion\Uninstall\)" +
@@ -599,6 +656,7 @@ void TInstallerInfo::startInstallationImpl() try {
                               uninstaller_path.wstring().c_str());
 
   debug("done installation");
+  setStatusMessage("Done");
   setProgress(100);
   emit installationCompleted(QString::fromStdString(LastError));
 

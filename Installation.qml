@@ -6,8 +6,6 @@ Item {
     width: 800
     height: 480
 
-    //        installer_info.startInstallation();
-
     Image {
         x: 278
         y: 97
@@ -70,14 +68,22 @@ Item {
             anchors.top: parent.top
             anchors.left: parent.right
             anchors.bottom: parent.bottom
+            width: progressBar.width - parent.width
             verticalAlignment: Text.AlignVCenter
             leftPadding: 6
             id: statusText
-            text: "Remaining Time: "
             font.family: defaultFont.name
             font.pixelSize: 14
             color: "white"
             font.weight: Font.Light
+            TextMetrics {
+                font: statusText.font
+                text: installer_info.statusMessage
+                elide: Text.ElideRight
+                elideWidth: statusText.width
+                id: elidedStatus
+            }
+            text:  elidedStatus.elidedText
         }
     }
 
@@ -185,8 +191,8 @@ Item {
         onTriggered: {
             cpuUsageText.usage = installer_info.cpuUsage()
             ramUsageText.usage = installer_info.ramUsage()
-            estimatedTimeText.text = "Estimated Time: " + installer_info.totalTime()
-            remainingTimeText.text = "Remaining Time: " + installer_info.remainingTime()
+            estimatedTimeText.text = "Estimated Time: " + installer_info.timeToStr(installer_info.totalTime())
+            remainingTimeText.text = "Remaining Time: " + installer_info.timeToStr(installer_info.remainingTime())
             currentProgressText.text = "Current Progress: " + installer_info.getProgress().toFixed(2) + '%'
             progressBar.progress = installer_info.getProgress()
         }
@@ -253,8 +259,10 @@ Item {
     CusCheckBox2 {
         x: 15
         y: 282
-        text: 'SHUTDOWN PC AFTER INSTALLATION FINISHED'
+        text: 'HIBERNATE PC AFTER INSTALLATION FINISHED'
         font.pixelSize: 10
+        Component.onCompleted: checked = installer_info.hibernatePCAfterInstallation
+        onCheckedChanged: installer_info.hibernatePCAfterInstallation = checked
     }
 
     Rectangle {
@@ -276,5 +284,17 @@ Item {
             anchors.margins: parent.border.width + 1
             color: installer_info.themeColor
         }
+    }
+
+    Text {
+        y: 380
+        x: 17
+        anchors.left: about_txt.left
+        font.family: defaultFont.name
+        font.pixelSize: 16
+        font.weight: Font.ExtraLight
+        font.capitalization: Font.AllUppercase
+        color: "white"
+        text: '\nInstaller By Gupta & Raven'
     }
 }

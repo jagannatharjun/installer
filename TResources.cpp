@@ -66,7 +66,11 @@ TResources::path TResources::extractFile(TResources::path DestFile,
     DestFile /= SrcFile.filename();
   buffer_t file_buf = GetFile(SrcFile);
   std::FILE *f = std::fopen(DestFile.string().c_str(), "wb");
+  if (!f)
+    throw std::runtime_error{"failed to write " + DestFile.string()};
+  SHOW(file_buf.size());
   std::fwrite(file_buf.data(), 1, file_buf.size(), f);
+  fclose(f);
   return DestFile;
 }
 

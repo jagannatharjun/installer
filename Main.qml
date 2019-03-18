@@ -10,15 +10,21 @@ Window {
     width: 800
     height: 480
     visible: true
+    onClosing: {
+        closeDialog.open()
+        close.accepted = false
+    }
     flags: Qt.Window | Qt.FramelessWindowHint
 
     MouseArea {
-            anchors.fill: parent
-            property point lastMousePos: Qt.point(0, 0)
-            onPressed: { lastMousePos = Qt.point(mouseX, mouseY); }
-            onMouseXChanged: mainwindow.x += (mouseX - lastMousePos.x)
-            onMouseYChanged: mainwindow.y += (mouseY - lastMousePos.y)
+        anchors.fill: parent
+        property point lastMousePos: Qt.point(0, 0)
+        onPressed: {
+            lastMousePos = Qt.point(mouseX, mouseY)
         }
+        onMouseXChanged: mainwindow.x += (mouseX - lastMousePos.x)
+        onMouseYChanged: mainwindow.y += (mouseY - lastMousePos.y)
+    }
 
     // used for back button at about page
     property int lastPage: 0
@@ -35,14 +41,32 @@ Window {
     signal nextButtonClicked(int source_page)
     signal currentPageChanged(int source_page)
 
+    MessageBox {
+        id: closeDialog
+
+        onVisibleChanged: {
+            if (visible)
+                installer_info.pauseInstallation()
+        }
+
+        onAccepted: {
+            installer_info.resumeInstallation() // wake up the unarc extraction thread
+            installer_info.terminateInstallation(true)
+            Qt.quit()
+        }
+        onRejected: {
+            installer_info.resumeInstallation()
+            close()
+        }
+    }
+
     onAboutButtonClicked: {
         lastPage = staticDesign.pageNumber
         staticDesign.pageNumber = 0
     }
 
     onCloseButtonClicked: {
-        installer_info.terminateInstallation(true)
-        close()
+        mainwindow.close()
     }
 
     onMinimizeButtonClicked: {
@@ -56,7 +80,9 @@ Window {
             mainwindow.close()
         }
         onInstallationCompleted: {
-            staticDesign.pageNumber++
+            if (staticDesign.pageNumber != 0)
+                staticDesign.pageNumber = 7
+            lastPage = 7
         }
     }
 
@@ -93,10 +119,15 @@ Window {
 
     FontLoader {
         id: defaultFont
+
         //name: "Segoe Ui"
         //name: 'ITC Avant Garde Gothic Pro'
-
         source: 'file:///' + installer_info.expandConstant("{tmp}//font.ttf")
+    }
+
+    FontLoader {
+        id: defaultFont_light
+        source: 'file:///' + installer_info.expandConstant("{tmp}//font-Bk.ttf")
     }
 
     StaticDesign {
@@ -123,7 +154,8 @@ Window {
         console.log('source_page = ' + source_page)
         if (source_page === 6)
             mainwindow.close()
-        staticDesign.pageNumber = source_page + 1
+        else
+            staticDesign.pageNumber = source_page + 1
     }
 
     onBackButtonClicked: {

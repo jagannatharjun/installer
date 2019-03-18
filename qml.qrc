@@ -13,5 +13,7 @@
         <file>Installation.qml</file>
         <file>Finalization.qml</file>
         <file>About.qml</file>
+        <file>MessageBox.qml</file>
+        <file>CusButton.qml</file>
     </qresource>
 </RCC>

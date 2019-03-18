@@ -67,6 +67,6 @@ INCLUDEPATH += "E:/Cpp/Projects/Headers/Include"
 INCLUDEPATH += "infoware/include"
 INCLUDEPATH += E:/Cpp/Projects/concatfiles/concatfiles/include
 
-LIBS += dxgi.lib gdi32.lib version.lib Ole32.lib OleAut32.lib wbemuuid.lib
+LIBS += dxgi.lib gdi32.lib version.lib Ole32.lib OleAut32.lib wbemuuid.lib PowrProf.lib
 DEFINES += INFOWARE_USE_D3D
 

@@ -45,16 +45,21 @@ class TInstallerInfo : public QObject {
   Q_PROPERTY(QString applicationName READ applicationName NOTIFY
                  applicationNameChanged)
   Q_PROPERTY(QString applicationDescription READ applicationDescription NOTIFY
-                 appDescChanged);
+                 appDescChanged)
   Q_PROPERTY(QString destinationFolder READ destinationFolder WRITE
-                 setDestinationFolder NOTIFY destinationFolderChanged);
+                 setDestinationFolder NOTIFY destinationFolderChanged)
 
-  Q_PROPERTY(QColor themeColor READ themeColor NOTIFY themeColorChanged);
-  Q_PROPERTY(int requiredSize READ requiredSize NOTIFY sizeStatsChanged);
-  Q_PROPERTY(int diskTotalSpace READ diskTotalSpace NOTIFY sizeStatsChanged);
-  Q_PROPERTY(int diskFreeSpace READ diskFreeSpace NOTIFY sizeStatsChanged);
+  Q_PROPERTY(QColor themeColor READ themeColor NOTIFY themeColorChanged)
+  Q_PROPERTY(int requiredSize READ requiredSize NOTIFY sizeStatsChanged)
+  Q_PROPERTY(int diskTotalSpace READ diskTotalSpace NOTIFY sizeStatsChanged)
+  Q_PROPERTY(int diskFreeSpace READ diskFreeSpace NOTIFY sizeStatsChanged)
 
-  Q_PROPERTY(double progress READ progress NOTIFY progressChanged);
+  Q_PROPERTY(
+      bool hibernatePCAfterInstallation MEMBER hibernatePCAfterInstallation_)
+
+  Q_PROPERTY(double progress READ progress NOTIFY progressChanged)
+  Q_PROPERTY(
+      QString statusMessage MEMBER StatusMessage_ NOTIFY statusMessageChanged)
   // Q_PROPERTY(QString remainingTime READ remainingTime NOTIFY progressChanged)
   // Q_PROPERTY(QString totalTime READ totalTime NOTIFY progressChanged)
 
@@ -66,6 +71,7 @@ public:
   enum class TInstallerStates {
     InstallationNeverStarted,
     InstallationRunning,
+    InstallationPaused,
     InstallationFinished,
     InstallationFailed,
     InstallationStopped
@@ -91,12 +97,15 @@ public:
   Q_INVOKABLE static QString expandConstant(QString);
   double progress();
   Q_INVOKABLE static QString aboutTxt();
-  Q_INVOKABLE QString remainingTime() { return remainingTime_; }
-  Q_INVOKABLE QString totalTime() { return totalTime_; }
+  Q_INVOKABLE int remainingTime() { return remainingTime_; }
+  Q_INVOKABLE int totalTime() { return totalTime_; }
   Q_INVOKABLE void startInstallation();
   Q_INVOKABLE QString threadUrl() { return threadUrl_; }
   Q_INVOKABLE QString facebookUrl() { return facebookUrl_; }
   Q_INVOKABLE QString websiteUrl() { return websiteUrl_; }
+  Q_INVOKABLE static QString timeToStr(long long s);
+  Q_INVOKABLE void pauseInstallation();
+  Q_INVOKABLE void resumeInstallation();
   Q_INVOKABLE static void terminateInstallation() {
     terminateInstallation_ = true;
     // installerState_ = TInstallerStates::InstallationStopped;
@@ -116,6 +125,10 @@ public:
   static QList<QObject *> componentsPack, languagePack, redestribPack;
   static TComponent *desktopShortcut, *startMenuShortcut;
 
+  void setStatusMessage(const QString &StatusMessage);
+
+  TInstallerStates getInstallerState() const;
+
 signals:
   void applicationNameChanged();
   void appDescChanged();
@@ -127,6 +140,7 @@ signals:
 
   void installationFailed(QString msg);
   void installationCompleted(QString msg);
+  void statusMessageChanged();
 public slots:
 
 private:
@@ -136,11 +150,13 @@ private:
   static void setDestinationFolderImpl(const QString &destinationFolder);
   static bool terminateInstallation_;
   static QString websiteUrl_, facebookUrl_, threadUrl_;
+  static QColor themeColor_;
 
   double Progress_ = 0;
   std::thread installerThread_;
-  bool installerRunning_ = false;
-  QString remainingTime_, totalTime_;
+  bool installerRunning_ = false, hibernatePCAfterInstallation_ = false;
+  int remainingTime_, totalTime_;
+  QString StatusMessage_;
   TInstallerStates installerState_ = TInstallerStates::InstallationNeverStarted;
   void startInstallationImpl();
 };

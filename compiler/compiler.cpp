@@ -93,12 +93,31 @@ int main() try {
     fclose(f);
     ini = gupta::ParseIni(ini_buffer);
   }
+  auto getIniStr = [&](std::string section, std::string key) -> std::string {
+    auto f = ini.find(section);
+    if (f == ini.end())
+      return "";
+    auto k = f->second.find(key);
+    if (k == f->second.end())
+      return "";
+    return k->second;
+  };
+  auto getShorcutFiles = [&]() {
+    int i = 1;
+    std::string t;
+    for (std::string kval;
+         !(kval = getIniStr("Shortcuts", "Name" + std::to_string(i++)))
+              .empty();) {
+      t += kval.substr(0, kval.find_first_of(';')) + '\t';
+    }
+    return t;
+  };
 
   auto app_name = ini["Setup"]["AppName"];
 
   {
     using namespace std::filesystem;
-    auto rcedit_exe = ResourcesFolder / "..\\res\\rcedit.exe";
+    path rcedit_exe = RCEDIT_EXE;
     if (!exists(rcedit_exe)) {
       std::cerr << rcedit_exe << " doesn't exit";
       return 1;
@@ -142,6 +161,8 @@ int main() try {
 
     execute(makeRcEditCmd(uninstaller.string(), "--set-resource-string", "11",
                           app_name));
+    execute(makeRcEditCmd(uninstaller.string(), "--set-resource-string", "12",
+                          getShorcutFiles().c_str()));
 
 #ifdef NDEBUG
     execute(makeRcEditCmd(outInstallerExe.string(),

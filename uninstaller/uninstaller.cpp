@@ -1,8 +1,30 @@
 #include "../WinReg/WinReg.hpp"
+#include <ShlObj.h>
 #include <Windows.h>
 #include <filesystem>
 #include <string>
 #include <strsafe.h>
+std::filesystem::path desktopDirectory() {
+  PWCHAR dpath = NULL;
+  HRESULT hr;
+  (hr = SHGetKnownFolderPath(FOLDERID_Desktop, 0, NULL, &dpath));
+  if (!SUCCEEDED(hr))
+    return "";
+  std::filesystem::path res(dpath);
+  CoTaskMemFree(dpath);
+  return res;
+}
+
+std::filesystem::path startMenuDirectory() {
+  PWCHAR dpath = NULL;
+  HRESULT hr;
+  (hr = SHGetKnownFolderPath(FOLDERID_CommonPrograms, 0, NULL, &dpath));
+  if (!SUCCEEDED(hr))
+    return "";
+  std::filesystem::path res(dpath);
+  CoTaskMemFree(dpath);
+  return res;
+}
 
 //*************************************************************
 //
@@ -133,10 +155,25 @@ int execute(std::string cmd) {
 }
 
 std::string application_name() {
-  std::string e = getexename();
   char buf[1024] = {0};
   LoadStringA(GetModuleHandleW(NULL), 11, buf, sizeof buf);
   return buf;
+}
+
+std::vector<std::filesystem::path> shortcutFiles() {
+  char buf[1024] = {0};
+  LoadStringA(GetModuleHandleW(NULL), 12, buf, sizeof buf);
+  std::vector<std::filesystem::path> files;
+  auto desktopDir = desktopDirectory(), startMenuDir = startMenuDirectory();
+  for (char *b = buf, *s = buf; *b; ++b) {
+    if (*b == '\t') {
+      auto fn = (std::string(s, b) + ".lnk");
+      files.push_back(desktopDir / fn);
+      files.push_back(startMenuDir / fn);
+      s = b + 1;
+    }
+  }
+  return files;
 }
 
 std::wstring toStdWString(const std::string &str) {
@@ -145,7 +182,8 @@ std::wstring toStdWString(const std::string &str) {
 
 std::string getappfolder() {
   auto e = getexename();
-  e = e.substr(0, e.find_last_of('\\'));
+  e = e.substr(0, e.find_last_of('\\')); // folder uninstall
+  e = e.substr(0, e.find_last_of('\\')); // real application folder
   return e;
 }
 
@@ -166,36 +204,69 @@ template <typename... T> void writelines(const char *srcfile, T... lines) {
 #define MAIN main()
 #endif
 
-int MAIN try {
-  auto exe = getexename();
-  auto app = application_name();
-  auto msgBoxRet = MessageBoxA(
-      NULL, ("Do you really want to uninstall - " + app + "?").c_str(),
-      "Uninstaller", MB_YESNO);
-  if (msgBoxRet != IDYES)
-    return 0;
-  for (auto f : std::filesystem::recursive_directory_iterator{getappfolder()}) {
-    if (f.path() != exe)
-      std::filesystem::remove(f);
+using namespace std::filesystem;
+bool my_remove(const path &p, const path &except) {
+  bool ret = true;
+  for (const auto &f : directory_iterator{p}) {
+    bool deleteDir = true;
+    if (f == except) {
+      ret = false;
+      continue;
+    }
+    if (is_directory(f))
+      deleteDir = my_remove(f, except);
+    if (deleteDir) {
+      printf("deleting %s\n", f.path().string().c_str());
+      remove(f);
+    }
   }
+  remove(p.string().c_str());
+  return ret;
+}
 
-  if (!RegDelnode(HKEY_LOCAL_MACHINE,
-                  (LR"(Software\Microsoft\Windows\CurrentVersion\Uninstall\)" +
-                   toStdWString(app))
-                      .c_str())) {
-    MessageBoxA(NULL, "Failed to Delete Registry Keys", "Uninstaller", MB_OK);
+int MAIN {
+  std::string cmdline = GetCommandLineA();
+  auto silentUninstall = cmdline.find("/silent") != std::string::npos;
+  try {
+    auto exe = getexename();
+    auto app = application_name();
+    printf("appfolder - %s\n", getappfolder().c_str());
+    auto msgBoxRet = IDYES;
+    if (!silentUninstall)
+      msgBoxRet = MessageBoxA(
+          NULL, ("Do you really want to uninstall - " + app + "?").c_str(),
+          "Uninstaller", MB_YESNO);
+    if (msgBoxRet != IDYES)
+      return 0;
+
+    my_remove(getappfolder(), getexename());
+    for (const auto &sf : shortcutFiles())
+      if (exists(sf))
+        remove(sf);
+
+    if (!RegDelnode(
+            HKEY_LOCAL_MACHINE,
+            (LR"(Software\Microsoft\Windows\CurrentVersion\Uninstall\)" +
+             toStdWString(app))
+                .c_str())) {
+      if (!silentUninstall)
+        MessageBoxA(NULL, "Failed to Delete Registry Keys", "Uninstaller",
+                    MB_OK);
+    }
+
+    if (!silentUninstall)
+      MessageBoxA(NULL, "Uninstallation finished", "Uninstaller", MB_OK);
+
+    auto bat = std::filesystem::temp_directory_path() / "del.bat";
+
+    execute(("cmd.exe /C ping 1.1.1.1 -n 1 -w 3000 > Nul & rd /s /q \"" +
+             getappfolder() + "\" & rmdir \"" + getappfolder() + "\""));
+
+  } catch (std::exception &e) {
+    if (!silentUninstall)
+      MessageBoxA(
+          NULL,
+          ("Uninstallation failed because - " + std::string(e.what())).c_str(),
+          "Uninstaller", MB_OK);
   }
-
-  MessageBoxA(NULL, "Uninstallation finished", "Uninstaller", MB_OK);
-
-  auto bat = std::filesystem::temp_directory_path() / "del.bat";
-
-  execute(("cmd.exe /C ping 1.1.1.1 -n 1 -w 3000 > Nul & rd /s /q \"" +
-           getappfolder() + "\" & rmdir \"" + getappfolder() + "\""));
-
-} catch (std::exception &e) {
-  MessageBoxA(
-      NULL,
-      ("Uninstallation failed because - " + std::string(e.what())).c_str(),
-      "Uninstaller", MB_OK);
 }

@@ -5,7 +5,7 @@ if NOT %errorlevel% == 0 goto error
 ninja compiler uninstaller
 if NOT %errorlevel% == 0 goto error
 copy compiler\compiler.exe deploy\compiler.exe 
-copy uninstaller\uninstaller.exe deploy\res\uninstaller_res.exe
+copy uninstaller\uninstaller.exe deploy\private\uninstaller_res.exe
 if NOT %errorlevel% == 0 goto error
 copy release\installer.exe deploy\installer_res.exe
 if NOT %errorlevel% == 0 goto error

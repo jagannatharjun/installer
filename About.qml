@@ -15,7 +15,7 @@ Item {
         textFormat: Text.RichText
     }
     Text {
-        y: 364
+        y: 380
         anchors.left: about_txt.left
         font.family: defaultFont.name
         font.pixelSize: 16

@@ -12,18 +12,20 @@ Image {
     property alias directoryRectColor: directory.color
     property int pageNumber: 0
 
-    Component.onCompleted: {
-
-    }
+    focus: true
+    Keys.onEnterPressed: if (pageNumber != 5)
+                             nextButtonClicked(pageNumber)
+    Keys.onReturnPressed: if (pageNumber != 5)
+                              nextButtonClicked(pageNumber)
 
     onPageNumberChanged: {
 
         overview.color = pageNumber == 1 ? installer_info.themeColor : 'black'
         directory.color = pageNumber == 2 ? installer_info.themeColor : 'black'
-        components.color =  pageNumber == 3 ? installer_info.themeColor : 'black'
+        components.color = pageNumber == 3 ? installer_info.themeColor : 'black'
         requirements.color = pageNumber == 4 ? installer_info.themeColor : 'black'
-        installation.color =  pageNumber == 5 ? installer_info.themeColor : 'black'
-        finalization.color =  pageNumber == 6 ? installer_info.themeColor : 'black'
+        installation.color = pageNumber == 5 ? installer_info.themeColor : 'black'
+        finalization.color = pageNumber == 6 ? installer_info.themeColor : 'black'
 
         overviewTickOverlay.visible = pageNumber > 1
         directoryTickOverlay.visible = pageNumber > 2
@@ -32,8 +34,7 @@ Image {
         installationTickOverlay.visible = pageNumber > 5
         finalizationTickOverlay.visible = pageNumber > 6
 
-
-        leftBG.visible = pageNumber != 0;
+        leftBG.visible = pageNumber != 0
 
         function tickImageFile(srcPage) {
             if (pageNumber > srcPage)
@@ -43,15 +44,15 @@ Image {
             return "image://resources/images/tick_dark.png"
         }
 
-        overview_tick.source = tickImageFile(1);
-        directory_tick.source = tickImageFile(2);
-        components_tick.source = tickImageFile(3);
-        requirements_tick.source = tickImageFile(4);
-        installation_tick.source = tickImageFile(5);
-        finalization_tick.source = tickImageFile(6);
-
-
+        overview_tick.source = tickImageFile(1)
+        directory_tick.source = tickImageFile(2)
+        components_tick.source = tickImageFile(3)
+        requirements_tick.source = tickImageFile(4)
+        installation_tick.source = tickImageFile(5)
+        finalization_tick.source = tickImageFile(6)
     }
+
+
 
     Image {
         id: centerBG
@@ -106,7 +107,7 @@ Image {
                 y: core_logo.y - 1
                 height: core_logo.height
                 text: "pack"
-                color: "red"
+                color: installer_info.themeColor
                 font.family: defaultFont.name
                 font.weight: Font.Bold
                 font.pixelSize: 17
@@ -152,8 +153,6 @@ Image {
                 height: 13
                 x: 25
                 y: 15
-
-
             }
 
             ColorOverlay {
@@ -222,8 +221,6 @@ Image {
                 height: 13
                 x: 25
                 y: 15
-
-
             }
 
             ColorOverlay {
@@ -258,8 +255,6 @@ Image {
                 height: 13
                 x: 25
                 y: 15
-
-
             }
 
             ColorOverlay {
@@ -294,7 +289,6 @@ Image {
                 height: 13
                 x: 25
                 y: 15
-
             }
 
             ColorOverlay {
@@ -312,7 +306,6 @@ Image {
                 font.family: defaultFont.name
                 font.pixelSize: 12
                 color: "white"
-
             }
         }
 
@@ -330,8 +323,6 @@ Image {
                 height: 13
                 x: 25
                 y: 15
-
-
             }
 
             ColorOverlay {
@@ -353,79 +344,32 @@ Image {
         }
     }
 
-    Button {
-        width: 94
-        height: 31
+    CusButton {
         x: 11
         y: 441
-        id : back_button
-
-        onClicked: {
-            backButtonClicked()
-        }
-
-        contentItem: Text {
-            text: 'Back'
-            font.family: defaultFont.name
-            font.pointSize: 9
-            font.capitalization: Font.AllUppercase
-            horizontalAlignment: Text.AlignHCenter
-            verticalAlignment: Text.AlignVCenter
-            color: "white"
-        }
-
-        background: Rectangle {
-            color: back_button.hovered ? installer_info.themeColor : "#18191d"
-
-        }
+        id: back_button
+        text: 'Back'
+        onClicked: backButtonClicked()
     }
 
-    Button {
-        width: 94
-        height: 31
+    CusButton {
         x: 114
         y: 441
         id: bottom_close_btn
-
-        contentItem: Text {
-            text: 'Close'
-            font.family: defaultFont.name
-            font.pointSize: 9
-            font.capitalization: Font.AllUppercase
-            horizontalAlignment: Text.AlignHCenter
-            verticalAlignment: Text.AlignVCenter
-            color: "white"
-        }
-
-        background: Rectangle {
-            color: bottom_close_btn.hovered ? installer_info.themeColor : "#18191d"
-        }
+        text: 'Close'
+        onClicked: closeButtonClicked()
     }
 
-    Button {
-        width: 94
-        height: 31
+    CusButton {
         x: 214
         y: 441
         id: about_button
 
         onClicked: {
-            aboutButtonClicked();
+            aboutButtonClicked()
         }
 
-        contentItem: Text {
-            text: 'About'
-            font.family: defaultFont.name
-            font.pointSize: 9
-            font.capitalization: Font.AllUppercase
-            horizontalAlignment: Text.AlignHCenter
-            verticalAlignment: Text.AlignVCenter
-            color: "white"
-        }
-
-        background: Rectangle {
-            color: about_button.hovered ? installer_info.themeColor : "#18191d"
-        }
+        text: 'About'
     }
 
     Button {
@@ -435,7 +379,9 @@ Image {
         y: 445
         id: visitThreadBtn
 
-        onClicked: { Qt.openUrlExternally(installer_info.threadUrl()) }
+        onClicked: {
+            Qt.openUrlExternally(installer_info.threadUrl())
+        }
 
         contentItem: Text {
             text: 'Visit Thread'
@@ -450,18 +396,15 @@ Image {
             leftPadding: 24
         }
 
-
         background: Rectangle {
             color: visitThreadBtn.hovered ? installer_info.themeColor : "#18191d"
 
             Image {
                 source: "image://resources/images/thread_icon.png"
 
-                anchors.verticalCenter:  parent.verticalCenter
+                anchors.verticalCenter: parent.verticalCenter
                 anchors.left: parent.left
                 anchors.margins: 6
-
-
             }
         }
     }
@@ -473,14 +416,12 @@ Image {
         y: 445
         width: 24
         height: 24
-         
 
         MouseArea {
             anchors.fill: parent
             onClicked: {
-              Qt.openUrlExternally(installer_info.websiteUrl())
+                Qt.openUrlExternally(installer_info.websiteUrl())
             }
-        
         }
     }
 
@@ -491,8 +432,6 @@ Image {
         y: 445
         width: 24
         height: 24
-
-          
 
         MouseArea {
             anchors.fill: parent
@@ -537,11 +476,12 @@ Image {
 
         MouseArea {
             anchors.fill: parent
-            onClicked: { musicButtonClicked(); console.log('music')}
+            onClicked: {
+                musicButtonClicked()
+                console.log('music')
+            }
         }
     }
-
-
 }
 
 /*##^## Designer {

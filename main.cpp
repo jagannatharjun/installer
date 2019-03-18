@@ -7,6 +7,10 @@
 #include <QQmlEngine>
 #include <memory>
 
+//#include <QQmlDebuggingEnabler>
+
+// QQmlDebuggingEnabler enabler;
+
 int main(int argc, char *argv[]) {
   int i;
   {
@@ -20,7 +24,7 @@ int main(int argc, char *argv[]) {
     SHOW(qmlRegisterType<TInstallerInfo>("Ascent.info", 1, 0, "Installerinfo"));
     Resources->setMainIni("Setup.ini");
     Resources->extractTemporaryFiles("dll/*");
-    Resources->extractTemporaryFile("private/font.ttf");
+    Resources->extractTemporaryFiles("private/*.ttf");
 
     TInstallerInfo::setResources(Resources);
     TInstallerManager installer(Resources);
