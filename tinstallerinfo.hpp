@@ -126,6 +126,9 @@ public:
   static TComponent *desktopShortcut, *startMenuShortcut;
 
   void setStatusMessage(const QString &StatusMessage);
+  Q_INVOKABLE bool isInstallationFailed() {
+    return installerState_ == TInstallerStates::InstallationFailed;
+  }
 
   TInstallerStates getInstallerState() const;
 

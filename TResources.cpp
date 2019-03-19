@@ -29,6 +29,12 @@ auto getCurrentExecutable() {
   return e;
 }
 
+void EncryptDecrypt(std::vector<uint8_t> &b) {
+  const char key[] = {'G', 'U', 'P', 'T', 'A'};
+  for (int i = 0; i < b.size(); i++)
+    b[i] = b[i] ^ key[i % (sizeof(key) / sizeof(char))];
+}
+
 TResources::TResources(std::filesystem::path Source)
     : Source_{std::move(Source)}, TmpFolder_{myTempDir()} {
   FILE *exe = std::fopen(getCurrentExecutable().string().c_str(), "rb");
@@ -41,6 +47,7 @@ TResources::TResources(std::filesystem::path Source)
   ExeResourceBuf_.resize(buf_size);
   fseek(exe, -(buf_size + sizeof(uint64_t)), SEEK_END);
   SHOW(fread(ExeResourceBuf_.data(), 1, buf_size, exe));
+  EncryptDecrypt(ExeResourceBuf_);
   auto archive = gupta::openConcatFileStream(ExeResourceBuf_.data(), buf_size);
   for (auto f = archive->next_file(); f; f = archive->next_file()) {
     SHOW(f->path().string());

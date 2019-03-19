@@ -22,6 +22,6 @@ Item {
         font.weight: Font.ExtraLight
         font.capitalization: Font.AllUppercase
         color: installer_info.themeColor
-        text: '\nInstaller By Gupta & Raven'
+        text: '\nInstaller By Gupta & -Raven-'
     }
 }

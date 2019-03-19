@@ -4,6 +4,7 @@
 
 #include "debug.h"
 #include <QGuiApplication>
+#include <QIcon>
 #include <QQmlEngine>
 #include <memory>
 
@@ -23,10 +24,13 @@ int main(int argc, char *argv[]) {
 
     SHOW(qmlRegisterType<TInstallerInfo>("Ascent.info", 1, 0, "Installerinfo"));
     Resources->setMainIni("Setup.ini");
+    Resources->extractTemporaryFile("icon.ico");
     Resources->extractTemporaryFiles("dll/*");
     Resources->extractTemporaryFiles("private/*.ttf");
 
     TInstallerInfo::setResources(Resources);
+    a.setWindowIcon(
+        QIcon((Resources->TmpFolder() / "icon.ico").string().c_str()));
     TInstallerManager installer(Resources);
 
     i = a.exec();

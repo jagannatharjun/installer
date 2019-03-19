@@ -8,10 +8,13 @@ Dialog {
     property string boxTitle: staticDesign.pageNumber === 5 ? 'Warning' : "Exit"
     property string boxCaption1: staticDesign.pageNumber !== 5 ? 'Exit Setup Wizard' : "Abort Installation"
     property string boxCaption2: staticDesign.pageNumber !== 5 ? "are you sure you want to exit the setup wizard?" : "This will close the setup wizard and installation will be aborted\n\nAre you Sure?"
+    property alias yesButton: _YesButton
+    property alias noButton: _NoButton
     width: 400
     height: 230
     modal:true
     dim:true
+
 
     onVisibleChanged:  {
         if (visible) {
@@ -137,6 +140,7 @@ Dialog {
         }
 
         CusButton {
+            id : _YesButton
             text: "YES"
             x: 9
             y: 186
@@ -144,6 +148,7 @@ Dialog {
         }
 
         CusButton {
+            id : _NoButton
             text: "No"
             x: 297
             y: 186

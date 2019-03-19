@@ -195,6 +195,7 @@ Item {
             remainingTimeText.text = "Remaining Time: " + installer_info.timeToStr(installer_info.remainingTime())
             currentProgressText.text = "Current Progress: " + installer_info.getProgress().toFixed(2) + '%'
             progressBar.progress = installer_info.getProgress()
+            taskbarButton.progress.value = installer_info.getProgress()
         }
     }
 
@@ -295,6 +296,6 @@ Item {
         font.weight: Font.ExtraLight
         font.capitalization: Font.AllUppercase
         color: "white"
-        text: '\nInstaller By Gupta & Raven'
+        text: '\nInstaller By Gupta & -Raven-'
     }
 }

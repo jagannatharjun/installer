@@ -509,11 +509,7 @@ void TInstallerInfo::startInstallationImpl() try {
   installerRunning_ = true;
   InstallationStartTime = now();
   installerState_ = TInstallerStates::InstallationRunning;
-  // extract it before, so that can be called on failure
-  auto uninstaller_path = Resources->extractFile(
-      TResources::path(destinationFolder().toStdWString()) /
-          "Uninstall\\uninstaller.exe",
-      "private\\uninstaller.exe");
+
   SCOPE_EXIT {
     installerRunning_ = false;
     if (hibernatePCAfterInstallation_)
@@ -522,9 +518,13 @@ void TInstallerInfo::startInstallationImpl() try {
   SCOPE_SUCCESS { installerState_ = TInstallerStates::InstallationFinished; };
   SCOPE_FAILURE {
     installerState_ = TInstallerStates::InstallationFailed;
-    execute("\"" + uninstaller_path.string() + "\" /silent");
-    // std::filesystem::remove_all(destinationFolder().toStdWString());
-  };
+  }; // declare before, since extract uninstaller may fail
+  // extract it before, so that can be called on failure
+  auto uninstaller_path = Resources->extractFile(
+      TResources::path(destinationFolder().toStdWString()) /
+          "Uninstall\\uninstaller.exe",
+      "private\\uninstaller.exe");
+  SCOPE_FAILURE { execute("\"" + uninstaller_path.string() + "\" /silent"); };
 
   using extractor = int(__cdecl *)(cbtype *, ...);
   using unloadDll_t = void(__cdecl *)();

@@ -22,6 +22,12 @@ int execute(std::string cmd) {
   return r;
 }
 
+void EncryptDecrypt(std::vector<uint8_t> &b) {
+  const char key[] = {'G', 'U', 'P', 'T', 'A'};
+  for (int i = 0; i < b.size(); i++)
+    b[i] = b[i] ^ key[i % (sizeof(key) / sizeof(char))];
+}
+
 std::vector<uint8_t> ResourcesInBuffer(const gupta::cf_path &ResourcesFolder) {
   auto archive = gupta::concatfiles(ResourcesFolder);
   std::vector<uint8_t> buf;
@@ -34,6 +40,7 @@ std::vector<uint8_t> ResourcesInBuffer(const gupta::cf_path &ResourcesFolder) {
   }
   buf.resize(TotalReadCount);
   std::cout << "Resources size = " << buf.size() << std::endl;
+  EncryptDecrypt(buf);
   return buf;
 }
 
@@ -145,7 +152,7 @@ int main() try {
       execute(change_icon_cmd);
     };
 
-    auto icon_file = ResourcesFolder / "..\\icon.ico";
+    auto icon_file = ResourcesFolder / "icon.ico";
     changeIcon(outInstallerExe, icon_file);
 
     auto uninstaller_res = UNINSTALLER_EXE;

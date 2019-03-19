@@ -3,6 +3,7 @@ import QtQuick 2.12
 import QtQuick.Controls 2.12
 import QtQuick.Window 2.12
 import Ascent.info 1.0
+import QtWinExtras 1.0
 
 Window {
     id: mainwindow
@@ -10,10 +11,6 @@ Window {
     width: 800
     height: 480
     visible: true
-    onClosing: {
-        closeDialog.open()
-        close.accepted = false
-    }
     flags: Qt.Window | Qt.FramelessWindowHint
 
     MouseArea {
@@ -41,12 +38,29 @@ Window {
     signal nextButtonClicked(int source_page)
     signal currentPageChanged(int source_page)
 
+    TaskbarButton {
+        id: taskbarButton
+        visible: true
+        progress.minimum: 0;
+        progress.maximum: 100;
+        progress.visible: true
+       // progress.value: installer_info.progress
+    }
+
+    onClosing: {
+        close.accepted = installer_info.isInstallationFailed() || staticDesign.pageNumber == 6
+        if (!close.accepted)
+            closeDialog.open()
+    }
+
     MessageBox {
         id: closeDialog
 
         onVisibleChanged: {
-            if (visible)
+            if (visible) {
                 installer_info.pauseInstallation()
+                taskbarButton.progress.pause()
+            }
         }
 
         onAccepted: {
@@ -56,7 +70,35 @@ Window {
         }
         onRejected: {
             installer_info.resumeInstallation()
+            taskbarButton.progress.resume()
             close()
+        }
+    }
+
+    property string installationError: ''
+    MessageBox {
+        id : errorBox
+        boxTitle: "Error"
+        boxCaption1: "Error"
+        boxCaption2: installationError
+        yesButton.visible: false
+        noButton.text: 'Ok'
+        onRejected: {
+            mainwindow.close()
+        }
+    }
+
+    Installerinfo {
+        id: installer_info
+        onInstallationFailed: {
+            installationError = msg;
+            taskbarButton.progress.stop()
+            console.log(msg)
+            console.log(installer_info.isInstallationFailed())
+            errorBox.open()
+        }
+        onInstallationCompleted: {
+            staticDesign.pageNumber = 6
         }
     }
 
@@ -72,20 +114,6 @@ Window {
     onMinimizeButtonClicked: {
         lower()
     }
-
-    Installerinfo {
-        id: installer_info
-        onInstallationFailed: {
-            console.log(msg)
-            mainwindow.close()
-        }
-        onInstallationCompleted: {
-            if (staticDesign.pageNumber != 0)
-                staticDesign.pageNumber = 7
-            lastPage = 7
-        }
-    }
-
 
     /*
     property var pageSources: [

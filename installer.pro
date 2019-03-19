@@ -4,7 +4,7 @@
 #
 #-------------------------------------------------
 
-QT       += gui qml quick quickcontrols2 core multimedia 
+QT       += qml quickcontrols2 core multimedia winextras
 CONFIG   += qtquickcompiler
 
 TARGET = installer
