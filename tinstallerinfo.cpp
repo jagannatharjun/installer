@@ -285,50 +285,58 @@ QString TInstallerInfo::aboutTxt() {
 
 using Number = int;
 using cbtype = int __stdcall(char *what, Number int1, Number int2, char *str);
-int LastArcError = 0;
-int64_t TotalWriteSize = 0;
-int64_t LastTotalSize = -1, LastOrigSize = -1, LastCompSize = -1,
-        LastArcFileSize = -1, LastReadSize = -1, LastWriteSize = -1;
-int64_t LastArchiveWriteSize = 0;
-std::string LastArcErrorMsg;
-TInstallerInfo *Installer;
 
-void initailizeGlobalUnarcVars() {
-  LastTotalSize = -1, LastOrigSize = -1, LastCompSize = -1,
-  LastArcFileSize = -1, LastReadSize = -1, LastWriteSize = -1;
-  LastArchiveWriteSize = 0;
+int BytesPerSec;
+std::string ArcErrorMsg;
+TInstallerInfo *Installer;
+intmax_t TotalFiles, OrigSize, CompSize, ArcError, MaxArcWriteSize,
+    LastArchivesWriteSize, CurrentArchiveWriteSize;
+
+int __stdcall freearcinfo_callback(char *what, Number int1, Number int2,
+                                   char *str) {
+  if (!std::strcmp("total_files", what)) {
+    TotalFiles = int1;
+  } else if (!std::strcmp("origsize", what)) {
+    OrigSize = (intmax_t)int1 << 20;
+  } else if (!std::strcmp("compsize", what)) {
+    CompSize = (intmax_t)int1 << 20;
+  } else if (!std::strcmp("error", what)) {
+    ArcErrorMsg = str;
+    ArcError = int1;
+    ExitThread(-1);
+  }
+  debug("%:unhandled what - %", __func__, what);
+  if (TInstallerInfo::isTerminateInstallation()) {
+    debug("quitting installation");
+    return -127;
+  }
+  while (Installer->getInstallerState() ==
+         TInstallerInfo::TInstallerStates::InstallationPaused) {
+    using namespace std::chrono_literals;
+    std::this_thread::sleep_for(100ms);
+  }
+  return 1;
 }
 
 int __stdcall cb(char *what, Number int1, Number int2, char *str) {
   unarcMutex.lock();
   SCOPE_EXIT { unarcMutex.unlock(); };
-  debug(R"("%" "%" "%")", what, (uint64_t)int1 << 20, (uint64_t)int2 << 20);
-  if (!std::strcmp(what, "read")) {
-    LastReadSize = (uint64_t)int1 << 20;
-  } else if (!std::strcmp(what, "write")) {
-    LastWriteSize = (uint64_t)int1 << 20;
-    SHOW(LastArchiveWriteSize);
-    SHOW(LastWriteSize);
-    SHOW(TotalWriteSize);
-    Installer->setProgress(((LastArchiveWriteSize + LastWriteSize) * 100.0) /
-                           TotalWriteSize);
-  } else if (!std::strcmp(what, "filename")) {
-    Installer->setStatusMessage("Unpacking " + QString(str));
-    LastArcFileSize = (uint64_t)int1 << 20;
-    LastArcFileSize = LastWriteSize;
-  } else if (!std::strcmp(what, "total")) {
-    LastTotalSize = (uint64_t)int1 << 20;
-  } else if (!std::strcmp(what, "origsize")) {
-    LastOrigSize = (uint64_t)int1 << 20;
-  } else if (!std::strcmp(what, "compsize")) {
-    LastCompSize = (uint64_t)int1 << 20;
-  } else if (!std::strcmp(what, "error")) {
-    debug("error:%:%", int1, str);
-    LastArcError = int1;
-    LastArcErrorMsg = str;
-    unarcMutex.unlock(); // exit thread will not call the SCOPE_EXIT
-    ExitThread(int1);    // unarc will loop infinite when error happens
+  if (!std::strcmp("write", what)) {
+    CurrentArchiveWriteSize = (uint64_t)int1 << 20;
+    Installer->setProgress((LastArchivesWriteSize + CurrentArchiveWriteSize) *
+                           100.0 / MaxArcWriteSize);
+    return 0;
+  } else if (!std::strcmp("filename", what)) {
+    Installer->setStatusMessage(QString("Unpacking %1").arg(str));
+    return 0;
+  } else if (!std::strcmp("error", what)) {
+    ArcErrorMsg = str;
+    ArcError = int1;
+    unarcMutex.unlock();
+    ExitThread(-1);
+    return 0;
   }
+  debug("%:unhandled what - %", __func__, what);
   if (TInstallerInfo::isTerminateInstallation()) {
     debug("quitting installation");
     return -127;
@@ -392,6 +400,8 @@ void TInstallerInfo::resumeInstallation() {
     installerState_ = TInstallerStates::InstallationRunning;
 }
 
+int TInstallerInfo::bytesPerSec() { return BytesPerSec; }
+
 QString TInstallerInfo::destinationFolder() { return m_destinationFolder; }
 
 decltype(std::chrono::high_resolution_clock::now()) InstallationStartTime;
@@ -399,15 +409,18 @@ auto now() { return std::chrono::high_resolution_clock::now(); }
 
 inline void TInstallerInfo::setProgress(double progress) {
   SHOW(progress);
+  Progress_ = progress;
+
   auto currentTime = now();
   auto elapsed = std::chrono::duration<double, std::milli>(
                      currentTime - InstallationStartTime)
                      .count();
+  elapsed /= 1000;
   totalTime_ = elapsed * 100.0 / progress;
   remainingTime_ = totalTime_ - elapsed;
-  totalTime_ /= 1000;
-  remainingTime_ /= 1000;
-  Progress_ = progress;
+  BytesPerSec =
+      double(CurrentArchiveWriteSize + LastArchivesWriteSize) / elapsed;
+  SHOW(BytesPerSec);
   emit progressChanged();
 }
 
@@ -450,6 +463,8 @@ struct ArcDataFile {
         std::filesystem::exists(cfg)) {
       insertCmd("-cfg" + cfg);
     }
+
+    insertCmd("-o+");
 
     insertCmd("--", FileName = TInstallerInfo::expandConstant(
                                    LineSection(line, ":").c_str())
@@ -555,7 +570,7 @@ void TInstallerInfo::startInstallationImpl() try {
   std::string LastError;
   Installer = this;
   std::thread arcExtract([&]() {
-    TotalWriteSize = 0;
+    MaxArcWriteSize = 0;
     for (auto &file : ArcDataFiles) {
       if (!file.Install)
         continue;
@@ -563,21 +578,23 @@ void TInstallerInfo::startInstallationImpl() try {
         LastError = gupta::format("% doesn't exist", file.FileName);
         return;
       }
-      if (auto ret = FreeArcExtract(cb, "l", file.FileName.c_str(), nullptr);
+      if (auto ret = FreeArcExtract(freearcinfo_callback, "l",
+                                    file.FileName.c_str(), nullptr);
           ret) {
         LastError =
             gupta::format("% failed to retrieve size, FREEARC_CODE: %(%)",
-                          file.FileName, ret, LastArcErrorMsg);
+                          file.FileName, ArcError, ArcErrorMsg);
       } else {
-        file.OrigSize = LastOrigSize;
-        file.CompSize = LastCompSize;
+        file.OrigSize = OrigSize;
+        file.CompSize = CompSize;
         debug("%: unpack size = %,%", file.FileName, file.OrigSize,
               file.CompSize);
-        TotalWriteSize += file.OrigSize;
+        MaxArcWriteSize += file.OrigSize;
       }
     }
 
-    SHOW(TotalWriteSize);
+    SHOW(MaxArcWriteSize);
+    LastArchivesWriteSize = 0;
     for (auto &file : ArcDataFiles) {
       if (!file.Install)
         continue;
@@ -588,7 +605,6 @@ void TInstallerInfo::startInstallationImpl() try {
         c[i] = file.ExtractionCmd[i].data();
         debug("c[%] = %", i, c[i]);
       }
-      initailizeGlobalUnarcVars();
       if ((i = FreeArcExtract(cb, c[0], c[1], c[2], c[3], c[4], c[5], c[6],
                               c[7], c[8], c[9], c[10], c[11], c[12], c[13],
                               c[14], c[15], c[16], c[17], c[18], c[19],
@@ -597,11 +613,12 @@ void TInstallerInfo::startInstallationImpl() try {
         LastError = "FreeArcExtract Failed with error - " + std::to_string(i);
         break;
       }
+      LastArchivesWriteSize += CurrentArchiveWriteSize;
     }
   });
   arcExtract.join();
-  if (LastArcErrorMsg.size())
-    LastError = "FREEARC " + LastArcErrorMsg;
+  if (ArcErrorMsg.size())
+    LastError = "FREEARC: " + ArcErrorMsg;
   if (LastError.size())
     throw std::runtime_error{LastError};
   if (isTerminateInstallation())
@@ -670,4 +687,4 @@ void TComponent::setChecked(bool s) {
   checked = s;
 }
 
-inline TComponent::~TComponent() { debug("destroyed"); }
+TComponent::~TComponent() { debug("destroyed"); }

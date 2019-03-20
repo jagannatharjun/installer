@@ -68,6 +68,10 @@
 #include <utility>   // std::swap, std::pair
 #include <vector>    // std::vector
 
+#ifndef HKEY_CURRENT_USER_LOCAL_SETTINGS
+#define HKEY_CURRENT_USER_LOCAL_SETTINGS ((void *)0x80000007)
+#endif
+
 namespace winreg {
 
 //------------------------------------------------------------------------------

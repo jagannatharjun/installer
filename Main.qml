@@ -138,6 +138,17 @@ Window {
         return s.toFixed(t) + m[m.length - 1]
     }
 
+    function readableSize2(s, t) {
+        var m = ['B','KB', 'MB', 'GB', 'TB']
+        t = typeof t !== 'undefined' ? t : 2
+        for (var i = 0; i < m.length; i++)
+            if (s < 1024)
+                return s.toFixed(t) + m[i]
+            else
+                s /= 1024
+        return s.toFixed(t) + m[m.length - 1]
+    }
+
     function findPageNum(qmlFile) {
         for (var i = 0; i < pageSources.length; i++)
             if (pageSources[i] === qmlFile.toString())

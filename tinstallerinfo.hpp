@@ -113,6 +113,9 @@ public:
   Q_INVOKABLE static bool isTerminateInstallation() {
     return terminateInstallation_;
   }
+
+  Q_INVOKABLE int bytesPerSec();
+
   Q_INVOKABLE double getProgress() { return progress(); }
 
   void setDestinationFolder(const QString &destinationFolder);

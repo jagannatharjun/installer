@@ -15,9 +15,12 @@ Dialog {
     modal:true
     dim:true
 
+    Keys.onEnterPressed: accept()
+    Keys.onReturnPressed: accept()
 
     onVisibleChanged:  {
         if (visible) {
+            focus = true
             x = (parent.width - width) / 2
             y = (parent.height - height) / 2
         }

@@ -22,8 +22,11 @@ DEFINES += QT_DEPRECATED_WARNINGS
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
 CONFIG += c++1z
-win32-g++: LIBS += -lstdc++fs ../infoware/libinfoware.a
+win32-g++: LIBS += -lstdc++fs -lopengl32 -lgdi32 -lversion -lOle32 -lOleAut32 -lwbemuuid -lPowrProf
 win32-g++: QMAKE_CXXFLAGS += -march=native
+win32-g++: DEFINES += INFOWARE_USE_OPENGL
+win32-msvc: LIBS += dxgi.lib gdi32.lib version.lib Ole32.lib OleAut32.lib wbemuuid.lib PowrProf.lib
+win32-msvc: DEFINES += INFOWARE_USE_D3D
 
 SOURCES +=  main.cpp shortcut.cpp tinstallerinfo.cpp  tinstallermanager.cpp TResources.cpp 
 RESOURCES +=  qml.qrc 
@@ -67,6 +70,4 @@ INCLUDEPATH += "E:/Cpp/Projects/Headers/Include"
 INCLUDEPATH += "infoware/include"
 INCLUDEPATH += E:/Cpp/Projects/concatfiles/concatfiles/include
 
-LIBS += dxgi.lib gdi32.lib version.lib Ole32.lib OleAut32.lib wbemuuid.lib PowrProf.lib
-DEFINES += INFOWARE_USE_D3D
 

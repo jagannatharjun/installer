@@ -193,7 +193,7 @@ Item {
             ramUsageText.usage = installer_info.ramUsage()
             estimatedTimeText.text = "Estimated Time: " + installer_info.timeToStr(installer_info.totalTime())
             remainingTimeText.text = "Remaining Time: " + installer_info.timeToStr(installer_info.remainingTime())
-            currentProgressText.text = "Current Progress: " + installer_info.getProgress().toFixed(2) + '%'
+            currentProgressText.text = "Current Progress: " + installer_info.getProgress().toFixed(2) + '% | ' + readableSize2(installer_info.bytesPerSec()) + '/sec'
             progressBar.progress = installer_info.getProgress()
             taskbarButton.progress.value = installer_info.getProgress()
         }
