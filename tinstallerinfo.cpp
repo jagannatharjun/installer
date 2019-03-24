@@ -12,7 +12,7 @@
 #include <chrono>
 #include <gupta/cleanup.hpp>
 #include <gupta/dll.hpp>
-#include <infoware/infoware.hpp>
+//#include <infoware/infoware.hpp>
 
 #include "WinReg/WinReg.hpp"
 #include <functional>
@@ -28,8 +28,7 @@ QColor TInstallerInfo::themeColor_;
 std::mutex unarcMutex;
 
 TComponent *TInstallerInfo::desktopShortcut, *TInstallerInfo::startMenuShortcut;
-QString TInstallerInfo::websiteUrl_, TInstallerInfo::facebookUrl_,
-    TInstallerInfo::threadUrl_;
+QString TInstallerInfo::websiteUrl_, TInstallerInfo::facebookUrl_, TInstallerInfo::threadUrl_;
 bool TInstallerInfo::terminateInstallation_ = false;
 
 #include <ShlObj.h>
@@ -100,8 +99,7 @@ void TInstallerInfo::setResources(TInstallerInfo::ResourcePtr p) {
     return;
 
   QString pfDir = qgetenv("ProgramFiles").toStdString().c_str();
-  setDestinationFolderImpl(
-      pfDir + '\\' + Resources->GetIniValue("Setup", "AppName", "").c_str());
+  setDestinationFolderImpl(pfDir + '\\' + Resources->GetIniValue("Setup", "AppName", "").c_str());
 
   themeColor_ = QColor(Resources->GetIniValue("Setup", "Color", "").c_str());
 
@@ -124,23 +122,16 @@ void TInstallerInfo::setResources(TInstallerInfo::ResourcePtr p) {
   std::string name;
   auto readPack = [&](const char *PackName, auto Func) {
     i = 1;
-    while ((name = Resources->GetIniValue(PackName,
-                                          "Name" + std::to_string(i++), ""))
-               .size()) {
+    while ((name = Resources->GetIniValue(PackName, "Name" + std::to_string(i++), "")).size()) {
       Func();
     }
   };
-  readPack("LanguagePacks",
-           [&]() { languagePack.push_back(ComponentFromIni(name, nullptr)); });
-  readPack("ComponentPacks", [&]() {
-    componentsPack.push_back(ComponentFromIni(name, nullptr));
-  });
-  readPack("Redistributables",
-           [&]() { redestribPack.push_back(RedistribFromIni(name, nullptr)); });
+  readPack("LanguagePacks", [&]() { languagePack.push_back(ComponentFromIni(name, nullptr)); });
+  readPack("ComponentPacks", [&]() { componentsPack.push_back(ComponentFromIni(name, nullptr)); });
+  readPack("Redistributables", [&]() { redestribPack.push_back(RedistribFromIni(name, nullptr)); });
 }
 
-void TInstallerInfo::setDestinationFolderImpl(
-    const QString &destinationFolder) {
+void TInstallerInfo::setDestinationFolderImpl(const QString &destinationFolder) {
   m_destinationFolder = destinationFolder;
   if (m_destinationFolder.startsWith("file:///"))
     m_destinationFolder.remove(0, 8);
@@ -168,8 +159,7 @@ QString TInstallerInfo::applicationDescription() {
   if (d.isEmpty()) {
     auto f = Resources->GetFileText("Description.txt");
     qDebug() << "Read " << f.size();
-    d = QString::fromLocal8Bit(reinterpret_cast<const char *>(f.data()),
-                               f.size());
+    d = QString::fromLocal8Bit(reinterpret_cast<const char *>(f.data()), f.size());
   }
   return d;
 }
@@ -183,9 +173,7 @@ int TInstallerInfo::requiredSize() {
   return std::stoull(Resources->GetIniValue("Setup", "ReleaseSize", ""));
 }
 
-int TInstallerInfo::diskTotalSpace() {
-  return m_driveInfo.capacity / (1024 * 1024);
-}
+int TInstallerInfo::diskTotalSpace() { return m_driveInfo.capacity / (1024 * 1024); }
 
 int TInstallerInfo::diskFreeSpace() { return m_driveInfo.free / (1024 * 1024); }
 
@@ -195,69 +183,80 @@ QString TInstallerInfo::info(const QString &s) {
 }
 
 QString TInstallerInfo::requirement(const QString &s) {
-  return QString::fromStdString(
-      Resources->GetIniValue("Requirements", s.toStdString(), ""));
+  return QString::fromStdString(Resources->GetIniValue("Requirements", s.toStdString(), ""));
 }
 
-static iware::system::OS_info_t i;
+// static iware::system::OS_info_t i;
 
-void initOSINFO() {
-  if (i.full_name.empty()) {
-    // CoInitiailize will fail in current thread
-    std::thread helper([&]() { i = iware::system::OS_info(); });
-    helper.join();
-  }
-  SHOW(i.name);
-  SHOW(i.full_name);
-}
+// void initOSINFO() {
+// if (i.full_name.empty()) {
+// CoInitiailize will fail in current thread
+// std::thread helper([&]() { i = iware::system::OS_info(); });
+// helper.join();
+// }
+// SHOW(i.name);
+// SHOW(i.full_name);
+// }
 QString TInstallerInfo::osText() {
-  initOSINFO();
-  return QString::fromStdString(i.full_name);
+  //  initOSINFO();
+  //  return QString::fromStdString(i.full_name);
+  return "";
 }
 
 QString TInstallerInfo::buildNumberText() {
-  initOSINFO();
-  auto n = [](auto &&q) { return QString::number(q); };
-  return n(i.patch) + '.' + n(i.build_number);
+  // initOSINFO();
+  // auto n = [](auto &&q) { return QString::number(q); };
+  // return n(i.patch) + '.' + n(i.build_number);
+  return "1";
 }
 
-QString TInstallerInfo::cpuText() { return iware::cpu::model_name().c_str(); }
+QString TInstallerInfo::cpuText() {
+  // return iware::cpu::model_name().c_str();
+  return "1";
+}
 QString TInstallerInfo::cpuFrequencyText() {
-  return QString::number(iware::cpu::max_frequency());
+  //  return QString::number(iware::cpu::max_frequency());
+  return "";
 }
 int TInstallerInfo::ramSize() {
-  return iware::system::memory().physical_total / (1024 * 1024);
+  //  return iware::system::memory().physical_total / (1024 * 1024);
+  return 1;
 }
 
 int TInstallerInfo::ramUsage() {
-  auto m = iware::system::memory();
-  return ((m.physical_total - m.physical_available) * 100) / m.physical_total;
+  //  auto m = iware::system::memory();
+  //  return ((m.physical_total - m.physical_available) * 100) / m.physical_total;
+  return 1;
 }
 
-iware::gpu::device_properties_t getGPU() {
-  iware::gpu::device_properties_t prop;
-  auto f = iware::gpu::device_properties();
-  for (auto &t : f) {
-    switch (t.vendor) {
-    case iware::gpu::vendor_t::amd:
-    case iware::gpu::vendor_t::nvidia:
-      return t;
-    }
-    prop = t;
-  }
-  return prop;
+// iware::gpu::device_properties_t getGPU() {
+// iware::gpu::device_properties_t prop;
+// auto f = iware::gpu::device_properties();
+// for (auto &t : f) {
+// switch (t.vendor) {
+// case iware::gpu::vendor_t::amd:
+// case iware::gpu::vendor_t::nvidia:
+// return t;
+// }
+// prop = t;
+// }
+// return prop;
+// }
+
+QString TInstallerInfo::gpuText() {
+  // return getGPU().name.c_str();
+  return "";
 }
 
-QString TInstallerInfo::gpuText() { return getGPU().name.c_str(); }
-
-int TInstallerInfo::cpuUsage() { return iware::system::cpu_usage(); }
+int TInstallerInfo::cpuUsage() {
+  // return iware::system::cpu_usage();
+  return 1;
+}
 
 QString TInstallerInfo::expandConstant(QString str) {
   str.replace("{app}", destinationFolder());
-  str.replace("{src}", QString::fromStdU16String(
-                           std::filesystem::current_path().u16string()));
-  str.replace("{tmp}",
-              QString::fromStdU16String(Resources->TmpFolder().u16string()));
+  str.replace("{src}", QString::fromStdU16String(std::filesystem::current_path().u16string()));
+  str.replace("{tmp}", QString::fromStdU16String(Resources->TmpFolder().u16string()));
   return str;
 }
 
@@ -277,8 +276,7 @@ QString TInstallerInfo::aboutTxt() {
   //  auto txt =
   //      GetFile("E:/Cpp/Projects/Gui/installer/build/Deploy/Resources/About.txt");
 
-  auto about_txt =
-      QString::fromLocal8Bit(reinterpret_cast<char *>(txt.data()), txt.size());
+  auto about_txt = QString::fromLocal8Bit(reinterpret_cast<char *>(txt.data()), txt.size());
   SHOW(about_txt);
   return about_txt;
 }
@@ -289,11 +287,10 @@ using cbtype = int __stdcall(char *what, Number int1, Number int2, char *str);
 int BytesPerSec;
 std::string ArcErrorMsg;
 TInstallerInfo *Installer;
-intmax_t TotalFiles, OrigSize, CompSize, ArcError, MaxArcWriteSize,
-    LastArchivesWriteSize, CurrentArchiveWriteSize;
+intmax_t TotalFiles, OrigSize, CompSize, ArcError, MaxArcWriteSize, LastArchivesWriteSize,
+    CurrentArchiveWriteSize;
 
-int __stdcall freearcinfo_callback(char *what, Number int1, Number int2,
-                                   char *str) {
+int __stdcall freearcinfo_callback(char *what, Number int1, Number int2, char *str) {
   if (!std::strcmp("total_files", what)) {
     TotalFiles = int1;
   } else if (!std::strcmp("origsize", what)) {
@@ -310,8 +307,7 @@ int __stdcall freearcinfo_callback(char *what, Number int1, Number int2,
     debug("quitting installation");
     return -127;
   }
-  while (Installer->getInstallerState() ==
-         TInstallerInfo::TInstallerStates::InstallationPaused) {
+  while (Installer->getInstallerState() == TInstallerInfo::TInstallerStates::InstallationPaused) {
     using namespace std::chrono_literals;
     std::this_thread::sleep_for(100ms);
   }
@@ -323,8 +319,8 @@ int __stdcall cb(char *what, Number int1, Number int2, char *str) {
   SCOPE_EXIT { unarcMutex.unlock(); };
   if (!std::strcmp("write", what)) {
     CurrentArchiveWriteSize = (uint64_t)int1 << 20;
-    Installer->setProgress((LastArchivesWriteSize + CurrentArchiveWriteSize) *
-                           100.0 / MaxArcWriteSize);
+    Installer->setProgress((LastArchivesWriteSize + CurrentArchiveWriteSize) * 100.0 /
+                           MaxArcWriteSize);
     return 0;
   } else if (!std::strcmp("filename", what)) {
     Installer->setStatusMessage(QString("Unpacking %1").arg(str));
@@ -341,8 +337,7 @@ int __stdcall cb(char *what, Number int1, Number int2, char *str) {
     debug("quitting installation");
     return -127;
   }
-  while (Installer->getInstallerState() ==
-         TInstallerInfo::TInstallerStates::InstallationPaused) {
+  while (Installer->getInstallerState() == TInstallerInfo::TInstallerStates::InstallationPaused) {
     using namespace std::chrono_literals;
     std::this_thread::sleep_for(100ms);
   }
@@ -412,14 +407,12 @@ inline void TInstallerInfo::setProgress(double progress) {
   Progress_ = progress;
 
   auto currentTime = now();
-  auto elapsed = std::chrono::duration<double, std::milli>(
-                     currentTime - InstallationStartTime)
-                     .count();
+  auto elapsed =
+      std::chrono::duration<double, std::milli>(currentTime - InstallationStartTime).count();
   elapsed /= 1000;
   totalTime_ = elapsed * 100.0 / progress;
   remainingTime_ = totalTime_ - elapsed;
-  BytesPerSec =
-      double(CurrentArchiveWriteSize + LastArchivesWriteSize) / elapsed;
+  BytesPerSec = double(CurrentArchiveWriteSize + LastArchivesWriteSize) / elapsed;
   SHOW(BytesPerSec);
   emit progressChanged();
 }
@@ -444,38 +437,33 @@ struct ArcDataFile {
     }
 
     if (auto tmpDir = LineSection(line, "Tmp:"); !tmpDir.empty()) {
-      insertCmd("-w" +
-                TInstallerInfo::expandConstant(tmpDir.c_str()).toStdString());
+      insertCmd("-w" + TInstallerInfo::expandConstant(tmpDir.c_str()).toStdString());
     } else {
       insertCmd("-w" + TInstallerInfo::expandConstant("{tmp}\\").toStdString());
     }
 
     if (auto destDir = LineSection(line, "Dest:"); !destDir.empty()) {
-      insertCmd("-dp" +
-                TInstallerInfo::expandConstant(destDir.c_str()).toStdString());
+      insertCmd("-dp" + TInstallerInfo::expandConstant(destDir.c_str()).toStdString());
     } else {
-      insertCmd("-dp" +
-                TInstallerInfo::expandConstant("{app}\\").toStdString());
+      insertCmd("-dp" + TInstallerInfo::expandConstant("{app}\\").toStdString());
     }
 
-    if (auto cfg =
-            TInstallerInfo::expandConstant("{tmp}\\arc.ini").toStdString();
+    if (auto cfg = TInstallerInfo::expandConstant("{tmp}\\arc.ini").toStdString();
         std::filesystem::exists(cfg)) {
       insertCmd("-cfg" + cfg);
     }
 
     insertCmd("-o+");
 
-    insertCmd("--", FileName = TInstallerInfo::expandConstant(
-                                   LineSection(line, ":").c_str())
-                                   .toStdString());
+    insertCmd("--",
+              FileName =
+                  TInstallerInfo::expandConstant(LineSection(line, ":").c_str()).toStdString());
 
     auto CompStr = LineSection(line, "Comp:", "");
     if (CompStr.empty()) {
       Component = nullptr;
     } else {
-      std::for_each(CompStr.begin(), CompStr.end(),
-                    [](auto &c) { c = tolower(c); });
+      std::for_each(CompStr.begin(), CompStr.end(), [](auto &c) { c = tolower(c); });
       auto findComp = [&](const QObject *obj) {
         auto comp = dynamic_cast<const TComponent *>(obj);
         assert(comp && "obj is not a TComponent");
@@ -486,8 +474,7 @@ struct ArcDataFile {
       if (e != TInstallerInfo::languagePack.end()) {
         Component = dynamic_cast<TComponent *>(*e);
       } else if ((e = std::find_if(TInstallerInfo::componentsPack.begin(),
-                                   TInstallerInfo::componentsPack.end(),
-                                   findComp)) !=
+                                   TInstallerInfo::componentsPack.end(), findComp)) !=
                  TInstallerInfo::componentsPack.end()) {
         Component = dynamic_cast<TComponent *>(*e);
       } else {
@@ -496,8 +483,7 @@ struct ArcDataFile {
     }
     Install = !Component || Component->checked;
     if (Component)
-      debug("% belongs to %(checked = %)", FileName, Component->name,
-            Component->checked);
+      debug("% belongs to %(checked = %)", FileName, Component->name, Component->checked);
     debug("install = %", Install);
   }
 };
@@ -507,8 +493,8 @@ int execute(std::string cmd) {
   STARTUPINFOA info = {sizeof(info)};
   PROCESS_INFORMATION processInfo;
   SHOW(cmd);
-  int r = CreateProcessA(NULL, &cmd[0], NULL, NULL, TRUE, CREATE_NO_WINDOW,
-                         NULL, NULL, &info, &processInfo);
+  int r = CreateProcessA(NULL, &cmd[0], NULL, NULL, TRUE, CREATE_NO_WINDOW, NULL, NULL, &info,
+                         &processInfo);
   if (r) {
     WaitForSingleObject(processInfo.hProcess, INFINITE);
     CloseHandle(processInfo.hProcess);
@@ -536,21 +522,18 @@ void TInstallerInfo::startInstallationImpl() try {
   }; // declare before, since extract uninstaller may fail
   // extract it before, so that can be called on failure
   auto uninstaller_path = Resources->extractFile(
-      TResources::path(destinationFolder().toStdWString()) /
-          "Uninstall\\uninstaller.exe",
+      TResources::path(destinationFolder().toStdWString()) / "Uninstall\\uninstaller.exe",
       "private\\uninstaller.exe");
   SCOPE_FAILURE { execute("\"" + uninstaller_path.string() + "\" /silent"); };
 
   using extractor = int(__cdecl *)(cbtype *, ...);
   using unloadDll_t = void(__cdecl *)();
 
-  gupta::DynamicLib unarcdll(
-      Resources->extractTemporaryFile("dll/unarc.dll").wstring().c_str());
+  gupta::DynamicLib unarcdll(Resources->extractTemporaryFile("dll/unarc.dll").wstring().c_str());
   if (!unarcdll.isLoaded())
     throw std::runtime_error("failed to load unarc.dll");
 
-  auto FreeArcExtract =
-      (extractor)GetProcAddress(unarcdll.module(), "FreeArcExtract");
+  auto FreeArcExtract = (extractor)GetProcAddress(unarcdll.module(), "FreeArcExtract");
   if (!FreeArcExtract)
     throw std::runtime_error{"failed to export FreeArcExport"};
 
@@ -559,11 +542,10 @@ void TInstallerInfo::startInstallationImpl() try {
   SCOPE_EXIT { UnloadDll(); };
 
   std::vector<ArcDataFile> ArcDataFiles;
-  for (std::string line = Resources->GetIniValue(
-           "Files", "File" + std::to_string(ArcDataFiles.size() + 1), "");
-       !line.empty();
-       line = Resources->GetIniValue(
-           "Files", "File" + std::to_string(ArcDataFiles.size() + 1), "")) {
+  for (std::string line =
+           Resources->GetIniValue("Files", "File" + std::to_string(ArcDataFiles.size() + 1), "");
+       !line.empty(); line = Resources->GetIniValue(
+                          "Files", "File" + std::to_string(ArcDataFiles.size() + 1), "")) {
     ArcDataFiles.emplace_back(line);
   }
 
@@ -578,17 +560,14 @@ void TInstallerInfo::startInstallationImpl() try {
         LastError = gupta::format("% doesn't exist", file.FileName);
         return;
       }
-      if (auto ret = FreeArcExtract(freearcinfo_callback, "l",
-                                    file.FileName.c_str(), nullptr);
+      if (auto ret = FreeArcExtract(freearcinfo_callback, "l", file.FileName.c_str(), nullptr);
           ret) {
-        LastError =
-            gupta::format("% failed to retrieve size, FREEARC_CODE: %(%)",
-                          file.FileName, ArcError, ArcErrorMsg);
+        LastError = gupta::format("% failed to retrieve size, FREEARC_CODE: %(%)", file.FileName,
+                                  ArcError, ArcErrorMsg);
       } else {
         file.OrigSize = OrigSize;
         file.CompSize = CompSize;
-        debug("%: unpack size = %,%", file.FileName, file.OrigSize,
-              file.CompSize);
+        debug("%: unpack size = %,%", file.FileName, file.OrigSize, file.CompSize);
         MaxArcWriteSize += file.OrigSize;
       }
     }
@@ -605,9 +584,8 @@ void TInstallerInfo::startInstallationImpl() try {
         c[i] = file.ExtractionCmd[i].data();
         debug("c[%] = %", i, c[i]);
       }
-      if ((i = FreeArcExtract(cb, c[0], c[1], c[2], c[3], c[4], c[5], c[6],
-                              c[7], c[8], c[9], c[10], c[11], c[12], c[13],
-                              c[14], c[15], c[16], c[17], c[18], c[19],
+      if ((i = FreeArcExtract(cb, c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[7], c[8], c[9], c[10],
+                              c[11], c[12], c[13], c[14], c[15], c[16], c[17], c[18], c[19],
                               nullptr))) {
 
         LastError = "FreeArcExtract Failed with error - " + std::to_string(i);
@@ -636,41 +614,34 @@ void TInstallerInfo::startInstallationImpl() try {
   int i = 0;
   auto desktopDir = desktopDirectory(), startMenuDir = startMenuDirectory();
   std::string shortCutline;
-  while ((shortCutline = Resources->GetIniValue(
-              "Shortcuts", "Name" + std::to_string(++i), ""))
+  while ((shortCutline = Resources->GetIniValue("Shortcuts", "Name" + std::to_string(++i), ""))
              .size()) {
     shortCutline.insert(0, ":");
     std::string name = LineSection(shortCutline, ":") + ".lnk";
     if (name.empty())
       continue;
     std::string srcFile =
-        expandConstant(QString(LineSection(shortCutline, "Target:").c_str()))
-            .toStdString();
+        expandConstant(QString(LineSection(shortCutline, "Target:").c_str())).toStdString();
     if (srcFile.empty())
       continue;
     std::string description = LineSection(shortCutline, "Description:");
-    if (desktopShortcut->checked &&
-        StrToBool(LineSection(shortCutline, "Desktop:", "1"))) {
-      SHOW(CreateLink(srcFile.c_str(), (desktopDir / name).string().c_str(),
-                      description.c_str()));
+    if (desktopShortcut->checked && StrToBool(LineSection(shortCutline, "Desktop:", "1"))) {
+      SHOW(CreateLink(srcFile.c_str(), (desktopDir / name).string().c_str(), description.c_str()));
     }
-    if (startMenuShortcut->checked &&
-        StrToBool(LineSection(shortCutline, "StartMenu:", "1"))) {
-      SHOW(CreateLink(srcFile.c_str(), (startMenuDir / name).string().c_str(),
-                      description.c_str()));
+    if (startMenuShortcut->checked && StrToBool(LineSection(shortCutline, "StartMenu:", "1"))) {
+      SHOW(
+          CreateLink(srcFile.c_str(), (startMenuDir / name).string().c_str(), description.c_str()));
     }
   }
 
   debug("adding uninstaller reg keys");
   setStatusMessage("Creating uninstaller");
-  winreg::RegKey UninstallKey{
-      HKEY_LOCAL_MACHINE,
-      LR"(Software\Microsoft\Windows\CurrentVersion\Uninstall\)" +
-          applicationName().toStdWString()};
+  winreg::RegKey UninstallKey{HKEY_LOCAL_MACHINE,
+                              LR"(Software\Microsoft\Windows\CurrentVersion\Uninstall\)" +
+                                  applicationName().toStdWString()};
 
   UninstallKey.SetStringValue(L"DisplayName", applicationName().toStdWString());
-  UninstallKey.SetStringValue(L"UninstallString",
-                              uninstaller_path.wstring().c_str());
+  UninstallKey.SetStringValue(L"UninstallString", uninstaller_path.wstring().c_str());
 
   debug("done installation");
   setStatusMessage("Done");

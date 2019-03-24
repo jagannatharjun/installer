@@ -6,6 +6,8 @@
 #include <QQmlContext>
 #include <QQuickImageProvider>
 
+#include <QDebug>
+
 #include <QMediaPlayer>
 #include <QMediaPlaylist>
 #include <algorithm>
@@ -45,7 +47,7 @@ public:
     qDebug() << __func__ << ": " << id << " " << buf.size();
 
     if (buf.size() == 0) {
-      qDebug() << "failed to read " << id;
+//      qDebug() << "failed to read " << id.toStdString();
     }
     return pixmap;
   }

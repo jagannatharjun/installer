@@ -37,6 +37,9 @@ void EncryptDecrypt(std::vector<uint8_t> &b) {
 
 TResources::TResources(std::filesystem::path Source)
     : Source_{std::move(Source)}, TmpFolder_{myTempDir()} {
+  //#ifndef NDEBUG
+  //  return;
+  //#endif
   FILE *exe = std::fopen(getCurrentExecutable().string().c_str(), "rb");
   if (!exe)
     throw std::runtime_error{"failed to open exe for resources"};
@@ -89,8 +92,7 @@ TResources::path TResources::extractTemporaryFile(TResources::path File) {
   File = TmpFolder_ / File.filename();
   std::FILE *tmpFile = std::fopen(File.string().c_str(), "wb");
   if (!tmpFile)
-    throw std::runtime_error{"Failed to write tmp File \"" + File.string() +
-                             "\""};
+    throw std::runtime_error{"Failed to write tmp File \"" + File.string() + "\""};
   std::fwrite(FileBuf_.data(), 1, FileBuf_.size(), tmpFile);
   fclose(tmpFile);
   return File;
@@ -112,20 +114,17 @@ TResources::buffer_t TResources::GetFileText(TResources::path File) {
   return GetFileText(std::move(File), buf);
 }
 
-TResources::buffer_t &TResources::GetFile(std::filesystem::path File,
-                                          TResources::buffer_t &buf) {
+TResources::buffer_t &TResources::GetFile(std::filesystem::path File, TResources::buffer_t &buf) {
   return GetFile(std::move(File), buf, "rb");
 }
 
-TResources::buffer_t &TResources::GetFileText(TResources::path File,
-                                              TResources::buffer_t &buf) {
+TResources::buffer_t &TResources::GetFileText(TResources::path File, TResources::buffer_t &buf) {
   return GetFile(std::move(File), buf, "r");
 }
 
 TResources::string TResources::GetIniValue(const TResources::path &IniFile,
                                            const TResources::string &Section,
-                                           const TResources::string &key,
-                                           const string &Default) {
+                                           const TResources::string &key, const string &Default) {
   if (Inis_.find(IniFile.string()) == Inis_.end()) {
     auto IniBuf = GetFile((IniFile));
     SHOW(IniFile.string());
@@ -151,9 +150,19 @@ void TResources::setMainIni(const string &MainIni) { MainIni_ = MainIni; }
 
 TResources::path TResources::TmpFolder() const { return TmpFolder_; }
 
-TResources::buffer_t &TResources::GetFile(TResources::path File,
-                                          TResources::buffer_t &buf,
+TResources::buffer_t &TResources::GetFile(TResources::path File, TResources::buffer_t &buf,
                                           const char * /*FileOpenMode*/) {
+  //#ifndef NDEBUG
+  //  static path resource_path = R"(E:\Cpp\Projects\Gui\installer\build\Deploy\Resources)";
+  //  auto f_p = resource_path / File;
+  //  auto f_sz = std::filesystem::file_size(f_p);
+  //  if (FILE *f = std::fopen(f_p.string().c_str(), "rb"); f) {
+  //    buf.resize(f_sz);
+  //    fread(buf.data(), 1, buf.size(), f);
+  //  }
+  //  return buf;
+  //#endif
+
   gupta::cf_basicfile *requiredfile = nullptr;
   std::error_code ec;
   auto fpstr = File.string();
@@ -205,8 +214,7 @@ bool wildcardmatch(const char *s, const char *wildcard) {
 
 std::vector<gupta::cf_basicfile *> TResources::GetFiles(std::string WildCard) {
   std::vector<gupta::cf_basicfile *> result;
-  std::for_each(WildCard.begin(), WildCard.end(),
-                [](auto &c) { c = c == '/' ? '\\' : c; });
+  std::for_each(WildCard.begin(), WildCard.end(), [](auto &c) { c = c == '/' ? '\\' : c; });
   for (auto &f : Files_)
     if (wildcardmatch(f->path().string().c_str(), WildCard.c_str())) {
       debug("% matched with %", WildCard, f->path().string());

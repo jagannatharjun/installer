@@ -9,6 +9,10 @@
 #include <memory>
 #include <thread>
 
+namespace std {
+	class thread;
+}
+
 class TResources;
 
 class TComponent : public QObject {
