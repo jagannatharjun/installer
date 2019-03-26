@@ -24,12 +24,12 @@ DEFINES += QT_DEPRECATED_WARNINGS
 CONFIG += c++1z
 
 win32-msvc: LIBS += PowrProf.lib
-win32-g++: LIBS += -lPowrProf -lstdc++fs -lOle32 -luuid
-QTPLUGIN  -= QWasapiPlugin
-
-SOURCES +=  main.cpp shortcut.cpp tinstallerinfo.cpp  tinstallermanager.cpp TResources.cpp 
+win32-clang-msvc: LIBS += PowrProf.lib wbemuuid.lib
+win32-g++: LIBS += -lPowrProf -lstdc++fs -lOle32 -luuid -lwbemuuid
+RESOURCES += resources.rc
+SOURCES +=  main.cpp shortcut.cpp tinstallerinfo.cpp  tinstallermanager.cpp TResources.cpp wmi_object.cpp
 RESOURCES +=  qml.qrc 
-HEADERS += debug.h shortcut.hpp tinstallerinfo.hpp tinstallermanager.hpp TResources.hpp
+HEADERS += debug.h shortcut.hpp tinstallerinfo.hpp tinstallermanager.hpp TResources.hpp wmi_object.h
 
 SOURCES += E:/Cpp/Projects/concatfiles/concatfiles/src/concatfiles.cpp
 

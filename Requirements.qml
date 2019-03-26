@@ -166,8 +166,7 @@ Item {
         anchors.right: ostext.right
         wrapMode: Text.WordWrap
         topPadding: 4
-        text: "CPU Frequency: " + (installer_info.cpuFrequencyText(
-                                       ) * 1e-9).toFixed(2) + "GHz"
+        text: "CPU Frequency: " + installer_info.cpuFrequencyText()
         font: ostext.font
         color: ostext.color
     }

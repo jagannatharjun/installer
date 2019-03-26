@@ -9,8 +9,10 @@
 #include <memory>
 #include <thread>
 
+#include "Wmi_Object.h"
+
 namespace std {
-	class thread;
+class thread;
 }
 
 class TResources;
@@ -19,8 +21,7 @@ class TComponent : public QObject {
   Q_OBJECT
 
   Q_PROPERTY(QString name MEMBER name NOTIFY nameChanged);
-  Q_PROPERTY(
-      bool checked MEMBER checked WRITE setChecked NOTIFY checkedChanged);
+  Q_PROPERTY(bool checked MEMBER checked WRITE setChecked NOTIFY checkedChanged);
 signals:
   void nameChanged();
   void checkedChanged();
@@ -46,24 +47,20 @@ public:
 class TInstallerInfo : public QObject {
   Q_OBJECT
 
-  Q_PROPERTY(QString applicationName READ applicationName NOTIFY
-                 applicationNameChanged)
-  Q_PROPERTY(QString applicationDescription READ applicationDescription NOTIFY
-                 appDescChanged)
-  Q_PROPERTY(QString destinationFolder READ destinationFolder WRITE
-                 setDestinationFolder NOTIFY destinationFolderChanged)
+  Q_PROPERTY(QString applicationName READ applicationName NOTIFY applicationNameChanged)
+  Q_PROPERTY(QString applicationDescription READ applicationDescription NOTIFY appDescChanged)
+  Q_PROPERTY(QString destinationFolder READ destinationFolder WRITE setDestinationFolder NOTIFY
+                 destinationFolderChanged)
 
   Q_PROPERTY(QColor themeColor READ themeColor NOTIFY themeColorChanged)
   Q_PROPERTY(int requiredSize READ requiredSize NOTIFY sizeStatsChanged)
   Q_PROPERTY(int diskTotalSpace READ diskTotalSpace NOTIFY sizeStatsChanged)
   Q_PROPERTY(int diskFreeSpace READ diskFreeSpace NOTIFY sizeStatsChanged)
 
-  Q_PROPERTY(
-      bool hibernatePCAfterInstallation MEMBER hibernatePCAfterInstallation_)
+  Q_PROPERTY(bool hibernatePCAfterInstallation MEMBER hibernatePCAfterInstallation_)
 
   Q_PROPERTY(double progress READ progress NOTIFY progressChanged)
-  Q_PROPERTY(
-      QString statusMessage MEMBER StatusMessage_ NOTIFY statusMessageChanged)
+  Q_PROPERTY(QString statusMessage MEMBER StatusMessage_ NOTIFY statusMessageChanged)
   // Q_PROPERTY(QString remainingTime READ remainingTime NOTIFY progressChanged)
   // Q_PROPERTY(QString totalTime READ totalTime NOTIFY progressChanged)
 
@@ -114,9 +111,7 @@ public:
     terminateInstallation_ = true;
     // installerState_ = TInstallerStates::InstallationStopped;
   }
-  Q_INVOKABLE static bool isTerminateInstallation() {
-    return terminateInstallation_;
-  }
+  Q_INVOKABLE static bool isTerminateInstallation() { return terminateInstallation_; }
 
   Q_INVOKABLE int bytesPerSec();
 
@@ -169,6 +164,8 @@ private:
   QString StatusMessage_;
   TInstallerStates installerState_ = TInstallerStates::InstallationNeverStarted;
   void startInstallationImpl();
+
+  ComInitializer ComInitialize;
 };
 
 #endif // TINSTALLERINFO_HPP

@@ -17,11 +17,10 @@ class TResourcesImageProvider : public QQuickImageProvider {
 public:
   TResourcesImageProvider(std::shared_ptr<TResources> Resources)
       : Resources{Resources}, QQuickImageProvider(QQuickImageProvider::Image) {}
-  QImage requestImage(const QString &id, QSize *size,
-                      const QSize &requestedSize) {
+  QImage requestImage(const QString &id, QSize *size, const QSize &requestedSize) {
     auto imagebuf = Resources->GetFile(id.toStdString());
-    auto imagearray = QByteArray::fromRawData(
-        reinterpret_cast<const char *>(imagebuf.data()), imagebuf.size());
+    auto imagearray =
+        QByteArray::fromRawData(reinterpret_cast<const char *>(imagebuf.data()), imagebuf.size());
     SHOW(id);
     SHOW(imagearray.size());
     auto image = QImage::fromData(imagearray);
@@ -31,8 +30,7 @@ public:
 
     return image;
   }
-  QPixmap requestPixmap(const QString &id, QSize *size,
-                        const QSize &requestedSize) override {
+  QPixmap requestPixmap(const QString &id, QSize *size, const QSize &requestedSize) override {
     debug(__func__);
     std::vector<uint8_t> buf;
 
@@ -47,7 +45,7 @@ public:
     qDebug() << __func__ << ": " << id << " " << buf.size();
 
     if (buf.size() == 0) {
-//      qDebug() << "failed to read " << id.toStdString();
+      //      qDebug() << "failed to read " << id.toStdString();
     }
     return pixmap;
   }
@@ -69,47 +67,38 @@ TInstallerManager::TInstallerManager(std::shared_ptr<TResources> Resources)
   Resources_->extractTemporaryFile("music.mp3");
 
   auto playlist = new QMediaPlaylist(this);
-  playlist->addMedia(QUrl::fromLocalFile(QString::fromStdWString(
-      Resources_->extractTemporaryFile("music.mp3").wstring())));
+  playlist->addMedia(QUrl::fromLocalFile(
+      QString::fromStdWString(Resources_->extractTemporaryFile("music.mp3").wstring())));
   playlist->setPlaybackMode(QMediaPlaylist::Loop);
   Player_->setMedia(playlist);
   Player_->setVolume(50);
   Player_->play();
 
   // take ownership of packs so that their destruction will be guarrenteed
-  std::for_each(TInstallerInfo::languagePack.begin(),
-                TInstallerInfo::languagePack.end(),
+  std::for_each(TInstallerInfo::languagePack.begin(), TInstallerInfo::languagePack.end(),
                 [this](auto &o) { o->setParent(this); });
-  std::for_each(TInstallerInfo::componentsPack.begin(),
-                TInstallerInfo::componentsPack.end(),
+  std::for_each(TInstallerInfo::componentsPack.begin(), TInstallerInfo::componentsPack.end(),
                 [this](auto &o) { o->setParent(this); });
-  std::for_each(TInstallerInfo::redestribPack.begin(),
-                TInstallerInfo::redestribPack.end(),
+  std::for_each(TInstallerInfo::redestribPack.begin(), TInstallerInfo::redestribPack.end(),
                 [this](auto &o) { o->setParent(this); });
 
-  TInstallerInfo::desktopShortcut =
-      new TComponent("desktopShortcut", true, this);
-  TInstallerInfo::startMenuShortcut =
-      new TComponent("startMenuShortcut", true, this);
+  TInstallerInfo::desktopShortcut = new TComponent("desktopShortcut", true, this);
+  TInstallerInfo::startMenuShortcut = new TComponent("startMenuShortcut", true, this);
 
-  rootCtx->setContextProperty(
-      "languagePackModel", QVariant::fromValue(TInstallerInfo::languagePack));
-  rootCtx->setContextProperty(
-      "componentPackModel",
-      QVariant::fromValue(TInstallerInfo::componentsPack));
-  rootCtx->setContextProperty(
-      "redistPackModel", QVariant::fromValue(TInstallerInfo::redestribPack));
-  rootCtx->setContextProperty("desktopShortcut",
-                              (TInstallerInfo::desktopShortcut));
-  rootCtx->setContextProperty("startMenuShortcut",
-                              (TInstallerInfo::startMenuShortcut));
+  rootCtx->setContextProperty("languagePackModel",
+                              QVariant::fromValue(TInstallerInfo::languagePack));
+  rootCtx->setContextProperty("componentPackModel",
+                              QVariant::fromValue(TInstallerInfo::componentsPack));
+  rootCtx->setContextProperty("redistPackModel",
+                              QVariant::fromValue(TInstallerInfo::redestribPack));
+  rootCtx->setContextProperty("desktopShortcut", (TInstallerInfo::desktopShortcut));
+  rootCtx->setContextProperty("startMenuShortcut", (TInstallerInfo::startMenuShortcut));
   // rootCtx->setContextProperty("installer_info", InstallerInfo_);
 
   Application_.load("qrc:/Main.qml");
   QObject *rootObject = Application_.rootObjects().first();
 
-  connect(rootObject, SIGNAL(musicButtonClicked()), this,
-          SLOT(musicButtonClicked()));
+  connect(rootObject, SIGNAL(musicButtonClicked()), this, SLOT(musicButtonClicked()));
 
   /*auto t = new QFileSystemWatcher(this);
   t->addPath(R"(E:\Cpp\Projects\Gui\installer)");

@@ -290,7 +290,6 @@ Item {
     Text {
         y: 380
         x: 17
-        anchors.left: about_txt.left
         font.family: defaultFont.name
         font.pixelSize: 16
         font.weight: Font.ExtraLight

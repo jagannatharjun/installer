@@ -1,7 +1,11 @@
 #include "tinstallerinfo.hpp"
 #include "TResources.hpp"
+#include "Wmi_Object.h"
 #include "debug.h"
 #include "shortcut.hpp"
+
+#include "WinReg/WinReg.hpp"
+#include "buf_io.h"
 
 #include <QColor>
 #include <QDebug>
@@ -12,12 +16,15 @@
 #include <chrono>
 #include <gupta/cleanup.hpp>
 #include <gupta/dll.hpp>
-//#include <infoware/infoware.hpp>
+#include <gupta/windows.hpp>
 
-#include "WinReg/WinReg.hpp"
 #include <functional>
 #include <mutex>
-#include <thread>
+
+// QString OSText = QString::fromStdWString(std::get<std::wstring>(OSInfo.get(L"Caption")));
+// QString BuildNumberText =
+//    QString::fromStdWString(std::get<std::wstring>(OSInfo.get(L"BuildNumber"))) + '.' +
+//    QString::number(/*std::get<uint64_t>(OSInfo.get(L"ServicePackMajorVersion"))*/ 10);
 
 TInstallerInfo::ResourcePtr TInstallerInfo::Resources;
 std::filesystem::space_info TInstallerInfo::m_driveInfo;
@@ -25,11 +32,12 @@ QString TInstallerInfo::m_destinationFolder;
 QList<QObject *> TInstallerInfo::componentsPack, TInstallerInfo::languagePack,
     TInstallerInfo::redestribPack;
 QColor TInstallerInfo::themeColor_;
-std::mutex unarcMutex;
-
 TComponent *TInstallerInfo::desktopShortcut, *TInstallerInfo::startMenuShortcut;
 QString TInstallerInfo::websiteUrl_, TInstallerInfo::facebookUrl_, TInstallerInfo::threadUrl_;
 bool TInstallerInfo::terminateInstallation_ = false;
+std::mutex unarcMutex;
+
+gupta::SharedMemory UnarcMem;
 
 #include <ShlObj.h>
 std::filesystem::path desktopDirectory() {
@@ -186,71 +194,90 @@ QString TInstallerInfo::requirement(const QString &s) {
   return QString::fromStdString(Resources->GetIniValue("Requirements", s.toStdString(), ""));
 }
 
-// static iware::system::OS_info_t i;
-
-// void initOSINFO() {
-// if (i.full_name.empty()) {
-// CoInitiailize will fail in current thread
-// std::thread helper([&]() { i = iware::system::OS_info(); });
-// helper.join();
-// }
-// SHOW(i.name);
-// SHOW(i.full_name);
-// }
 QString TInstallerInfo::osText() {
-  //  initOSINFO();
-  //  return QString::fromStdString(i.full_name);
-  return "";
+  return QString::fromStdWString(
+      std::get<std::wstring>(getWmiProp(L"Win32_OperatingSystem", L"Caption")));
+  // return QString::fromStdWString(std::get<std::wstring>(OSInfo.get(L"Caption")));
 }
 
 QString TInstallerInfo::buildNumberText() {
-  // initOSINFO();
-  // auto n = [](auto &&q) { return QString::number(q); };
-  // return n(i.patch) + '.' + n(i.build_number);
-  return "1";
+  //  auto major = std::get<uint64_t>(getWmiProp(L"Win32_OperatingSystem",
+  //  L"ServicePackMajorVersion")); auto minor =
+  //  std::get<uint64_t>(getWmiProp(L"Win32_OperatingSystem", L"ServicePackMinorVersion")); return
+  //  QString::fromStdWString(std::to_wstring(major) + L'.' + std::to_wstring(minor));
+
+  return QString::fromStdWString(
+      std::get<std::wstring>(getWmiProp(L"Win32_OperatingSystem", L"BuildNumber")));
 }
 
 QString TInstallerInfo::cpuText() {
-  // return iware::cpu::model_name().c_str();
-  return "1";
+  return QString::fromStdWString(std::get<std::wstring>(getWmiProp(L"Win32_Processor", L"Name")));
 }
 QString TInstallerInfo::cpuFrequencyText() {
-  //  return QString::number(iware::cpu::max_frequency());
-  return "";
+  // SHOW();
+  // auto s = std::to_wstring(
+  //     std::get<std::uint64_t>(getWmiProp(L"Win32_Processor", L"MaxClockSpeed")) / 1000.0);
+  return QString::number(std::get<std::uint64_t>(getWmiProp(L"Win32_Processor", L"MaxClockSpeed")) /
+                             1000.0,
+                         'g', 2) +
+         "GHz @ " +
+         QString::number(std::get<std::uint64_t>(
+             getWmiProp(L"Win32_Processor", L"NumberOfLogicalProcessors"))) +
+         " Threads";
 }
+
 int TInstallerInfo::ramSize() {
-  //  return iware::system::memory().physical_total / (1024 * 1024);
-  return 1;
+  ULONGLONG r;
+  GetPhysicallyInstalledSystemMemory(&r);
+  return r / (1024);
 }
 
 int TInstallerInfo::ramUsage() {
-  //  auto m = iware::system::memory();
-  //  return ((m.physical_total - m.physical_available) * 100) / m.physical_total;
-  return 1;
+  MEMORYSTATUSEX status;
+  status.dwLength = sizeof status;
+  GlobalMemoryStatusEx(&status);
+  return ((status.ullTotalPhys - status.ullAvailPhys) * 100) / status.ullTotalPhys;
 }
 
-// iware::gpu::device_properties_t getGPU() {
-// iware::gpu::device_properties_t prop;
-// auto f = iware::gpu::device_properties();
-// for (auto &t : f) {
-// switch (t.vendor) {
-// case iware::gpu::vendor_t::amd:
-// case iware::gpu::vendor_t::nvidia:
-// return t;
-// }
-// prop = t;
-// }
-// return prop;
-// }
-
 QString TInstallerInfo::gpuText() {
-  // return getGPU().name.c_str();
-  return "";
+  return QString::fromStdWString(
+      std::get<std::wstring>(getWmiProp(L"Win32_VideoController", L"Caption")));
+}
+
+static float CalculateCPULoad(unsigned long long idleTicks, unsigned long long totalTicks) {
+  static unsigned long long _previousTotalTicks = 0;
+  static unsigned long long _previousIdleTicks = 0;
+
+  unsigned long long totalTicksSinceLastTime = totalTicks - _previousTotalTicks;
+  unsigned long long idleTicksSinceLastTime = idleTicks - _previousIdleTicks;
+
+  float ret = 1.0f - ((totalTicksSinceLastTime > 0)
+                          ? ((float)idleTicksSinceLastTime) / totalTicksSinceLastTime
+                          : 0);
+
+  _previousTotalTicks = totalTicks;
+  _previousIdleTicks = idleTicks;
+  return ret;
+}
+
+static unsigned long long FileTimeToInt64(const FILETIME &ft) {
+  return (((unsigned long long)(ft.dwHighDateTime)) << 32) | ((unsigned long long)ft.dwLowDateTime);
+}
+
+// Returns 1.0f for "CPU fully pinned", 0.0f for "CPU idle", or somewhere in
+// between You'll need to call this at regular intervals, since it measures the
+// load between the previous call and the current one.  Returns -1.0 on error.
+float GetCPULoad() {
+  FILETIME idleTime, kernelTime, userTime;
+  return GetSystemTimes(&idleTime, &kernelTime, &userTime)
+             ? CalculateCPULoad(FileTimeToInt64(idleTime),
+                                FileTimeToInt64(kernelTime) + FileTimeToInt64(userTime))
+             : -1.0f;
 }
 
 int TInstallerInfo::cpuUsage() {
-  // return iware::system::cpu_usage();
-  return 1;
+  // return std::get<uint64_t>(getWmiProp(L"Win32_Processor", L"LoadPercentage"));
+  return GetCPULoad() * 100;
 }
 
 QString TInstallerInfo::expandConstant(QString str) {
@@ -489,7 +516,9 @@ struct ArcDataFile {
 };
 
 #include <powrprof.h>
-int execute(std::string cmd) {
+template <typename... Args> int execute(Args... a) {
+  std::string cmd;
+  ((cmd += std::string("\"") + a + "\" "), ...);
   STARTUPINFOA info = {sizeof(info)};
   PROCESS_INFORMATION processInfo;
   SHOW(cmd);
@@ -504,6 +533,26 @@ int execute(std::string cmd) {
   }
   return r;
 }
+
+STARTUPINFOA info_nowait = {sizeof(info_nowait)};
+PROCESS_INFORMATION processInfo_nowait = {0};
+template <typename... Args> int execute_nowait(Args... a) {
+  std::string cmd;
+  ((cmd += std::string("\"") + a + "\" "), ...);
+  info_nowait = {sizeof(info_nowait)};
+  SHOW(cmd);
+  int r = CreateProcessA(NULL, &cmd[0], NULL, NULL, TRUE, CREATE_NO_WINDOW, NULL, NULL,
+                         &info_nowait, &processInfo_nowait);
+  if (r) {
+  } else {
+    debug() << "failed to execute " << cmd;
+  }
+  return r;
+}
+
+std::string random_key() { return std::to_string(std::rand()); }
+
+enum InfoType : int8_t { None, Completed, Error, WriteSize, FileName };
 
 void TInstallerInfo::startInstallationImpl() try {
 
@@ -526,21 +575,6 @@ void TInstallerInfo::startInstallationImpl() try {
       "private\\uninstaller.exe");
   SCOPE_FAILURE { execute("\"" + uninstaller_path.string() + "\" /silent"); };
 
-  using extractor = int(__cdecl *)(cbtype *, ...);
-  using unloadDll_t = void(__cdecl *)();
-
-  gupta::DynamicLib unarcdll(Resources->extractTemporaryFile("dll/unarc.dll").wstring().c_str());
-  if (!unarcdll.isLoaded())
-    throw std::runtime_error("failed to load unarc.dll");
-
-  auto FreeArcExtract = (extractor)GetProcAddress(unarcdll.module(), "FreeArcExtract");
-  if (!FreeArcExtract)
-    throw std::runtime_error{"failed to export FreeArcExport"};
-
-  auto UnloadDll = (unloadDll_t)GetProcAddress(unarcdll.module(), "UnloadDLL");
-  assert(UnloadDll);
-  SCOPE_EXIT { UnloadDll(); };
-
   std::vector<ArcDataFile> ArcDataFiles;
   for (std::string line =
            Resources->GetIniValue("Files", "File" + std::to_string(ArcDataFiles.size() + 1), "");
@@ -549,10 +583,17 @@ void TInstallerInfo::startInstallationImpl() try {
     ArcDataFiles.emplace_back(line);
   }
 
+  auto host_exe = Resources->extractTemporaryFile("private/host.exe").string();
+  // auto host_exe = std::string(
+  //    R"(E:/Cpp/Projects/Build/build-unarc_x64-boost/build-unarc_x64-boost-Desktop_Qt_5_12_1_MSVC2017_32bit-Default/host.exe)");
   std::string LastError;
   Installer = this;
   std::thread arcExtract([&]() {
     MaxArcWriteSize = 0;
+    if (!UnarcMem.create(random_key(), 1024)) {
+      LastError = "Failed to Create Shared Memory";
+      return;
+    }
     for (auto &file : ArcDataFiles) {
       if (!file.Install)
         continue;
@@ -560,38 +601,105 @@ void TInstallerInfo::startInstallationImpl() try {
         LastError = gupta::format("% doesn't exist", file.FileName);
         return;
       }
-      if (auto ret = FreeArcExtract(freearcinfo_callback, "l", file.FileName.c_str(), nullptr);
-          ret) {
-        LastError = gupta::format("% failed to retrieve size, FREEARC_CODE: %(%)", file.FileName,
-                                  ArcError, ArcErrorMsg);
-      } else {
-        file.OrigSize = OrigSize;
-        file.CompSize = CompSize;
-        debug("%: unpack size = %,%", file.FileName, file.OrigSize, file.CompSize);
-        MaxArcWriteSize += file.OrigSize;
+      {
+        UnarcMem.lock();
+        byte_stream s = UnarcMem.data();
+        s.write("l");
+        s.write(file.FileName);
+        s.write("");
+        UnarcMem.unlock();
       }
+
+      if (!execute(host_exe, UnarcMem.name())) {
+        LastError = "Failed to execute Host";
+        return;
+      }
+
+      {
+        read_stream s = UnarcMem.data();
+        while (1) {
+          auto what = s.read<std::string>();
+          auto int1 = s.read<uint64_t>();
+          auto int2 = s.read<uint64_t>();
+          SHOW(what);
+          if (what == "origsize")
+            file.OrigSize = int1;
+          else if (what == "compsize")
+            file.CompSize = int1;
+          else if (what == "error") {
+            LastError = "Failed to retrieve Data File Info: " + s.read<std::string>();
+            return;
+          } else if (what == "completed") {
+            break;
+          } else if (what != "total_files") {
+            LastError = "Invalid What by Host - " + what;
+            return;
+          }
+        }
+      }
+      MaxArcWriteSize += file.OrigSize;
+      SHOW(file.OrigSize);
+      SHOW(file.CompSize);
+      SHOW(MaxArcWriteSize);
     }
 
     SHOW(MaxArcWriteSize);
     LastArchivesWriteSize = 0;
+
     for (auto &file : ArcDataFiles) {
       if (!file.Install)
         continue;
-      char *c[20];
       int i;
+      byte_stream s = UnarcMem.data();
       for (i = 0; i < 20; i++) {
-        file.ExtractionCmd[i].push_back(0);
-        c[i] = file.ExtractionCmd[i].data();
-        debug("c[%] = %", i, c[i]);
+        s.write(file.ExtractionCmd[i]);
       }
-      if ((i = FreeArcExtract(cb, c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[7], c[8], c[9], c[10],
-                              c[11], c[12], c[13], c[14], c[15], c[16], c[17], c[18], c[19],
-                              nullptr))) {
 
-        LastError = "FreeArcExtract Failed with error - " + std::to_string(i);
-        break;
+      {
+        auto r = execute_nowait(host_exe, UnarcMem.name());
+        if (!r) {
+          LastError = "Failed To Execute host for extraction";
+          return;
+        }
+        SCOPE_EXIT {
+          CloseHandle(processInfo_nowait.hProcess);
+          CloseHandle(processInfo_nowait.hThread);
+        };
+
+        using namespace std::chrono_literals;
+        std::this_thread::sleep_for(100ms);
+
+        DWORD e = 0;
+        while (GetExitCodeProcess(processInfo_nowait.hProcess, &e) && e == STILL_ACTIVE) {
+          {
+            UnarcMem.lock();
+            SCOPE_EXIT { UnarcMem.unlock(); };
+            read_stream s = UnarcMem.data();
+            auto info = s.read<InfoType>();
+            if (info == InfoType::WriteSize) {
+              CurrentArchiveWriteSize = s.read<uint64_t>();
+              setProgress((LastArchivesWriteSize + CurrentArchiveWriteSize) * 100.0 /
+                          MaxArcWriteSize);
+            } else if (info == InfoType::FileName) {
+              setStatusMessage("Unpacking " + QString::fromStdString(s.read<std::string>()));
+            } else if (info == InfoType::Error) {
+              LastError = "Unpacking Failed: " + s.read<std::string>();
+            } else if (info == InfoType::Completed) {
+              break;
+            }
+            while (installerState_ == TInstallerStates::InstallationPaused)
+              std::this_thread::sleep_for(100ms);
+            if (isTerminateInstallation()) {
+              LastError = "User Terminated Installation";
+              TerminateProcess(processInfo_nowait.hProcess, -1);
+              return;
+            }
+          }
+          std::this_thread::sleep_for(500ms);
+        }
+        LastArchivesWriteSize += file.OrigSize;
+        debug("host Returned : %", e);
       }
-      LastArchivesWriteSize += CurrentArchiveWriteSize;
     }
   });
   arcExtract.join();
@@ -644,7 +752,7 @@ void TInstallerInfo::startInstallationImpl() try {
   UninstallKey.SetStringValue(L"UninstallString", uninstaller_path.wstring().c_str());
 
   debug("done installation");
-  setStatusMessage("Done");
+  setStatusMessage("Completed");
   setProgress(100);
   emit installationCompleted(QString::fromStdString(LastError));
 
