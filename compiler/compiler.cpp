@@ -10,8 +10,7 @@ int execute(std::string cmd) {
   STARTUPINFO info = {sizeof(info)};
   PROCESS_INFORMATION processInfo;
   SHOW(cmd);
-  int r = CreateProcessA(NULL, &cmd[0], NULL, NULL, TRUE, 0, NULL, NULL, &info,
-                         &processInfo);
+  int r = CreateProcessA(NULL, &cmd[0], NULL, NULL, TRUE, 0, NULL, NULL, &info, &processInfo);
   if (r) {
     WaitForSingleObject(processInfo.hProcess, INFINITE);
     CloseHandle(processInfo.hProcess);
@@ -23,9 +22,9 @@ int execute(std::string cmd) {
 }
 
 void EncryptDecrypt(std::vector<uint8_t> &b) {
-  const char key[] = {'G', 'U', 'P', 'T', 'A'};
+  const char key[] = "{'G', 'U', 'P', 'T', 'A'}asdgqwor@#$@#%@#%@$%tu124323546134521124555345";
   for (int i = 0; i < b.size(); i++)
-    b[i] = b[i] ^ key[i % (sizeof(key) / sizeof(char))];
+    b[i] = b[i] ^ key[i % ((sizeof(key) / sizeof(char)) - 1)];
 }
 
 std::vector<uint8_t> ResourcesInBuffer(const gupta::cf_path &ResourcesFolder) {
@@ -33,8 +32,7 @@ std::vector<uint8_t> ResourcesInBuffer(const gupta::cf_path &ResourcesFolder) {
   std::vector<uint8_t> buf;
   gupta::cf_size_type TotalReadCount = 0, ReadCount = 0, BufferSize = 1024;
   buf.resize(BufferSize);
-  while ((ReadCount = archive->read(buf.data() + TotalReadCount,
-                                    buf.size() - TotalReadCount))) {
+  while ((ReadCount = archive->read(buf.data() + TotalReadCount, buf.size() - TotalReadCount))) {
     TotalReadCount += ReadCount;
     buf.resize(TotalReadCount + BufferSize);
   }
@@ -113,8 +111,7 @@ int main() try {
     int i = 1;
     std::string t;
     for (std::string kval;
-         !(kval = getIniStr("Shortcuts", "Name" + std::to_string(i++)))
-              .empty();) {
+         !(kval = getIniStr("Shortcuts", "Name" + std::to_string(i++))).empty();) {
       t += kval.substr(0, kval.find_first_of(';')) + '\t';
     }
     return t;
@@ -146,9 +143,8 @@ int main() try {
         std::cout << icon_file << " - doesn't exists";
         exit(2);
       }
-      auto change_icon_cmd = "\"" + rcedit_exe.string() + "\" \"" +
-                             exe.string() + "\" --set-icon \"" +
-                             icon_file.string() + "\"";
+      auto change_icon_cmd = "\"" + rcedit_exe.string() + "\" \"" + exe.string() +
+                             "\" --set-icon \"" + icon_file.string() + "\"";
       execute(change_icon_cmd);
     };
 
@@ -166,17 +162,14 @@ int main() try {
     copy(uninstaller_res, uninstaller);
     changeIcon(uninstaller, icon_file);
 
-    execute(makeRcEditCmd(uninstaller.string(), "--set-resource-string", "11",
-                          app_name));
+    execute(makeRcEditCmd(uninstaller.string(), "--set-resource-string", "11", app_name));
     execute(makeRcEditCmd(uninstaller.string(), "--set-resource-string", "12",
                           getShorcutFiles().c_str()));
 
-#ifdef NDEBUG
-    execute(makeRcEditCmd(outInstallerExe.string(),
-                          "--set-requested-execution-level",
+#if defined(NDEBUG) && 0
+    execute(makeRcEditCmd(outInstallerExe.string(), "--set-requested-execution-level",
                           "requireAdministrator"));
-    execute(makeRcEditCmd(uninstaller.string(),
-                          "--set-requested-execution-level",
+    execute(makeRcEditCmd(uninstaller.string(), "--set-requested-execution-level",
                           "requireAdministrator"));
 #endif
   }

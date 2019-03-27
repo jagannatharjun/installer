@@ -30,9 +30,9 @@ auto getCurrentExecutable() {
 }
 
 void EncryptDecrypt(std::vector<uint8_t> &b) {
-  const char key[] = {'G', 'U', 'P', 'T', 'A'};
+  const char key[] = "{'G', 'U', 'P', 'T', 'A'}asdgqwor@#$@#%@#%@$%tu124323546134521124555345";
   for (int i = 0; i < b.size(); i++)
-    b[i] = b[i] ^ key[i % (sizeof(key) / sizeof(char))];
+    b[i] = b[i] ^ key[i % ((sizeof(key) / sizeof(char)) - 1)];
 }
 
 TResources::TResources(std::filesystem::path Source)

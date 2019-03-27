@@ -9,7 +9,6 @@
 
 #include <QColor>
 #include <QDebug>
-#include <QProcess>
 #include <algorithm>
 #include <filesystem>
 
@@ -122,9 +121,9 @@ void TInstallerInfo::setResources(TInstallerInfo::ResourcePtr p) {
   threadUrl_ = getUrl("Thread");
   facebookUrl_ = getUrl("Facebook");
 
-  SHOW(websiteUrl_);
-  SHOW(threadUrl_);
-  SHOW(facebookUrl_);
+  //  SHOW(websiteUrl_);
+  //  SHOW(threadUrl_);
+  //  SHOW(facebookUrl_);
 
   int i = 1;
   std::string name;
@@ -144,6 +143,7 @@ void TInstallerInfo::setDestinationFolderImpl(const QString &destinationFolder) 
   if (m_destinationFolder.startsWith("file:///"))
     m_destinationFolder.remove(0, 8);
   m_destinationFolder.replace('/', '\\');
+
   std::error_code ec;
   auto f = std::filesystem::path(m_destinationFolder.toStdString()).root_name();
   m_driveInfo = std::filesystem::space(f, ec);
@@ -380,7 +380,14 @@ void TInstallerInfo::startInstallation() {
   installerThread_ = std::thread(&TInstallerInfo::startInstallationImpl, this);
 }
 
-void TInstallerInfo::setDestinationFolder(const QString &destinationFolder) {
+void TInstallerInfo::setDestinationFolder(QString destinationFolder) {
+  if (!destinationFolder.endsWith(applicationName())) {
+    if (destinationFolder.back() == '/' || destinationFolder.back() == '\\') {
+      destinationFolder += applicationName();
+    } else {
+      destinationFolder += '\\' + applicationName();
+    }
+  }
   setDestinationFolderImpl(destinationFolder);
   emit destinationFolderChanged();
   emit sizeStatsChanged();
@@ -573,7 +580,7 @@ void TInstallerInfo::startInstallationImpl() try {
   auto uninstaller_path = Resources->extractFile(
       TResources::path(destinationFolder().toStdWString()) / "Uninstall\\uninstaller.exe",
       "private\\uninstaller.exe");
-  SCOPE_FAILURE { execute("\"" + uninstaller_path.string() + "\" /silent"); };
+  SCOPE_FAILURE { execute(uninstaller_path.string(), "/silent"); };
 
   std::vector<ArcDataFile> ArcDataFiles;
   for (std::string line =
@@ -662,6 +669,7 @@ void TInstallerInfo::startInstallationImpl() try {
           return;
         }
         SCOPE_EXIT {
+          TerminateProcess(processInfo_nowait.hProcess, -1);
           CloseHandle(processInfo_nowait.hProcess);
           CloseHandle(processInfo_nowait.hThread);
         };
@@ -683,7 +691,9 @@ void TInstallerInfo::startInstallationImpl() try {
             } else if (info == InfoType::FileName) {
               setStatusMessage("Unpacking " + QString::fromStdString(s.read<std::string>()));
             } else if (info == InfoType::Error) {
-              LastError = "Unpacking Failed: " + s.read<std::string>();
+              LastError = gupta::format("Unpacking Failed for %, error - %", file.FileName,
+                                        s.read<std::string>());
+              return;
             } else if (info == InfoType::Completed) {
               break;
             }
@@ -703,6 +713,7 @@ void TInstallerInfo::startInstallationImpl() try {
     }
   });
   arcExtract.join();
+
   if (ArcErrorMsg.size())
     LastError = "FREEARC: " + ArcErrorMsg;
   if (LastError.size())
@@ -714,7 +725,7 @@ void TInstallerInfo::startInstallationImpl() try {
     auto rp = dynamic_cast<TRedistributable *>(r);
     assert(rp && "Ptr is not A TRedistributable");
     debug("running % with \"%\"", rp->name, rp->Cmd.c_str());
-    QProcess::execute(expandConstant(rp->Cmd.c_str()));
+    execute(expandConstant(rp->Cmd.c_str()).toStdString());
   }
 
   debug("creating shortcuts");

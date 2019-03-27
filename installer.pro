@@ -31,9 +31,9 @@ SOURCES +=  main.cpp shortcut.cpp tinstallerinfo.cpp  tinstallermanager.cpp TRes
 RESOURCES +=  qml.qrc 
 HEADERS += debug.h shortcut.hpp tinstallerinfo.hpp tinstallermanager.hpp TResources.hpp wmi_object.h
 
-SOURCES += E:/Cpp/Projects/concatfiles/concatfiles/src/concatfiles.cpp
+SOURCES += concatfiles/src/concatfiles.cpp
 
 INCLUDEPATH += "E:/Cpp/Projects/Headers/Include"
-INCLUDEPATH += E:/Cpp/Projects/concatfiles/concatfiles/include
+INCLUDEPATH += concatfiles/include
 
 

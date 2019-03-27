@@ -117,7 +117,7 @@ public:
 
   Q_INVOKABLE double getProgress() { return progress(); }
 
-  void setDestinationFolder(const QString &destinationFolder);
+  void setDestinationFolder(QString destinationFolder);
   static QString destinationFolder();
 
   void setProgress(double progress);
@@ -160,7 +160,7 @@ private:
   double Progress_ = 0;
   std::thread installerThread_;
   bool installerRunning_ = false, hibernatePCAfterInstallation_ = false;
-  int remainingTime_, totalTime_;
+  int remainingTime_ = 0, totalTime_ = 0;
   QString StatusMessage_;
   TInstallerStates installerState_ = TInstallerStates::InstallationNeverStarted;
   void startInstallationImpl();
