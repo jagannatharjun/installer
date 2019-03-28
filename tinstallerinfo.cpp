@@ -688,14 +688,16 @@ void TInstallerInfo::startInstallationImpl() try {
               CurrentArchiveWriteSize = s.read<uint64_t>();
               setProgress((LastArchivesWriteSize + CurrentArchiveWriteSize) * 100.0 /
                           MaxArcWriteSize);
-            } else if (info == InfoType::FileName) {
-              setStatusMessage("Unpacking " + QString::fromStdString(s.read<std::string>()));
             } else if (info == InfoType::Error) {
               LastError = gupta::format("Unpacking Failed for %, error - %", file.FileName,
                                         s.read<std::string>());
               return;
             } else if (info == InfoType::Completed) {
               break;
+            }
+            info = s.read<InfoType>();
+            if (info == InfoType::FileName) {
+              setStatusMessage("Unpacking " + QString::fromStdString(s.read<std::string>()));
             }
             while (installerState_ == TInstallerStates::InstallationPaused)
               std::this_thread::sleep_for(100ms);
@@ -737,19 +739,24 @@ void TInstallerInfo::startInstallationImpl() try {
              .size()) {
     shortCutline.insert(0, ":");
     std::string name = LineSection(shortCutline, ":") + ".lnk";
+    SHOW(name);
     if (name.empty())
       continue;
-    std::string srcFile =
-        expandConstant(QString(LineSection(shortCutline, "Target:").c_str())).toStdString();
+    auto srcFile =
+        expandConstant(QString(LineSection(shortCutline, "Target:").c_str())).toStdWString();
     if (srcFile.empty())
       continue;
     std::string description = LineSection(shortCutline, "Description:");
+    SHOW(description);
     if (desktopShortcut->checked && StrToBool(LineSection(shortCutline, "Desktop:", "1"))) {
-      SHOW(CreateLink(srcFile.c_str(), (desktopDir / name).string().c_str(), description.c_str()));
+      SHOW(CreateLink(srcFile.c_str(), (desktopDir / name).wstring().c_str(),
+                      QString::fromStdString(description).toStdWString().c_str(),
+                      std::filesystem::path(srcFile).parent_path().wstring().c_str()));
     }
     if (startMenuShortcut->checked && StrToBool(LineSection(shortCutline, "StartMenu:", "1"))) {
-      SHOW(
-          CreateLink(srcFile.c_str(), (startMenuDir / name).string().c_str(), description.c_str()));
+      SHOW(CreateLink(srcFile.c_str(), (startMenuDir / name).wstring().c_str(),
+                      QString::fromStdString(description).toStdWString().c_str(),
+                      std::filesystem::path(srcFile).parent_path().wstring().c_str()));
     }
   }
 
