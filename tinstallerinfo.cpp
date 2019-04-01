@@ -36,8 +36,6 @@ QString TInstallerInfo::websiteUrl_, TInstallerInfo::facebookUrl_, TInstallerInf
 bool TInstallerInfo::terminateInstallation_ = false;
 std::mutex unarcMutex;
 
-gupta::SharedMemory UnarcMem;
-
 #include <ShlObj.h>
 std::filesystem::path desktopDirectory() {
   PWCHAR dpath = NULL;
@@ -448,7 +446,7 @@ inline void TInstallerInfo::setProgress(double progress) {
   remainingTime_ = totalTime_ - elapsed;
   BytesPerSec = double(CurrentArchiveWriteSize + LastArchivesWriteSize) / elapsed;
   SHOW(BytesPerSec);
-  emit progressChanged();
+  // emit progressChanged();
 }
 
 struct ArcDataFile {
@@ -580,7 +578,11 @@ void TInstallerInfo::startInstallationImpl() try {
   auto uninstaller_path = Resources->extractFile(
       TResources::path(destinationFolder().toStdWString()) / "Uninstall\\uninstaller.exe",
       "private\\uninstaller.exe");
-  SCOPE_FAILURE { execute(uninstaller_path.string(), "/silent"); };
+  SCOPE_FAILURE {
+    setProgress(0);
+    setStatusMessage("Cleaning Up");
+    execute(uninstaller_path.string(), "/silent");
+  };
 
   std::vector<ArcDataFile> ArcDataFiles;
   for (std::string line =
@@ -597,6 +599,7 @@ void TInstallerInfo::startInstallationImpl() try {
   Installer = this;
   std::thread arcExtract([&]() {
     MaxArcWriteSize = 0;
+    gupta::SharedMemory UnarcMem;
     if (!UnarcMem.create(random_key(), 1024)) {
       LastError = "Failed to Create Shared Memory";
       return;
@@ -716,8 +719,8 @@ void TInstallerInfo::startInstallationImpl() try {
   });
   arcExtract.join();
 
-  if (ArcErrorMsg.size())
-    LastError = "FREEARC: " + ArcErrorMsg;
+  //  if (ArcErrorMsg.size())
+  //    LastError = "FREEARC: " + ArcErrorMsg;
   if (LastError.size())
     throw std::runtime_error{LastError};
   if (isTerminateInstallation())
@@ -772,6 +775,10 @@ void TInstallerInfo::startInstallationImpl() try {
   debug("done installation");
   setStatusMessage("Completed");
   setProgress(100);
+
+  if (isTerminateInstallation())
+    throw std::runtime_error{"User terminated the Installation"};
+
   emit installationCompleted(QString::fromStdString(LastError));
 
 } catch (std::exception &e) {

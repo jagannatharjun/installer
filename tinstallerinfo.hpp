@@ -59,7 +59,7 @@ class TInstallerInfo : public QObject {
 
   Q_PROPERTY(bool hibernatePCAfterInstallation MEMBER hibernatePCAfterInstallation_)
 
-  Q_PROPERTY(double progress READ progress NOTIFY progressChanged)
+  //Q_PROPERTY(double progress READ progress NOTIFY progressChanged)
   Q_PROPERTY(QString statusMessage MEMBER StatusMessage_ NOTIFY statusMessageChanged)
   // Q_PROPERTY(QString remainingTime READ remainingTime NOTIFY progressChanged)
   // Q_PROPERTY(QString totalTime READ totalTime NOTIFY progressChanged)
@@ -141,7 +141,7 @@ signals:
   void themeColorChanged();
   void sizeStatsChanged();
   void destinationFolderChanged();
-  void progressChanged();
+ // void progressChanged();
 
   void installationFailed(QString msg);
   void installationCompleted(QString msg);

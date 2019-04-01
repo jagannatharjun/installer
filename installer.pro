@@ -25,7 +25,8 @@ CONFIG += c++1z
 
 win32-msvc: LIBS += PowrProf.lib
 win32-clang-msvc: LIBS += PowrProf.lib wbemuuid.lib
-win32-g++: LIBS += -lPowrProf -lstdc++fs -lOle32 -luuid -lwbemuuid
+win32-clang-g++ : LIBS += -lPowrProf -lstdc++fs -lOle32 -luuid -lwbemuuid
+win32-g++ : LIBS += -lPowrProf -lstdc++fs -lOle32 -luuid -lwbemuuid
 RESOURCES += resources.rc
 SOURCES +=  main.cpp shortcut.cpp tinstallerinfo.cpp  tinstallermanager.cpp TResources.cpp wmi_object.cpp
 RESOURCES +=  qml.qrc 

@@ -35,15 +35,23 @@ void EncryptDecrypt(std::vector<uint8_t> &b) {
     b[i] = b[i] ^ key[i % ((sizeof(key) / sizeof(char)) - 1)];
 }
 
+#include <thread>
+using namespace std::chrono_literals;
+
 TResources::TResources(std::filesystem::path Source)
     : Source_{std::move(Source)}, TmpFolder_{myTempDir()} {
   //#ifndef NDEBUG
   //  return;
   //#endif
-  FILE *exe = std::fopen(getCurrentExecutable().string().c_str(), "rb");
-  if (!exe)
+	SHOW(TmpFolder_);
+  FILE *exe = NULL;
+	for(int i = 0; i < 5 && !(exe = std::fopen(getCurrentExecutable().string().c_str(), "rb")); i++)
+		std::this_thread::sleep_for(1ms);
+  if (!exe) {
+		perror("failed to open exe for resources");
     throw std::runtime_error{"failed to open exe for resources"};
-  fseek(exe, -sizeof(uint64_t), SEEK_END);
+	}
+	fseek(exe, -sizeof(uint64_t), SEEK_END);
   uint64_t buf_size = 0;
   SHOW(fread(&buf_size, sizeof buf_size, 1, exe));
   SHOW(buf_size);
@@ -59,10 +67,18 @@ TResources::TResources(std::filesystem::path Source)
   fclose(exe);
 }
 
+void tresources_dir_remove(const std::filesystem::path& Dir) {
+	std::error_code ec;
+	for(const auto& f: std::filesystem::directory_iterator(Dir)) {
+		if (std::filesystem::is_directory(f))
+			tresources_dir_remove(f);
+		int i = ::remove(f.path().string().c_str());
+		debug("%: %",f.path(), i);
+	}
+}
+
 TResources::~TResources() {
-  std::error_code ec;
-  std::filesystem::remove_all(TmpFolder_, ec);
-  SHOW(ec.message());
+	tresources_dir_remove(TmpFolder_);
 }
 
 TResources::path TResources::extractFile(TResources::path DestFile,

@@ -12,13 +12,14 @@
 
 // QQmlDebuggingEnabler enabler;
 
-int main(int argc, char *argv[]) {
-  int i;
-  {
-    qputenv("QML_DISABLE_DISTANCEFIELD", "1");
+auto Resources =
+		std::make_shared<TResources>("E:/Cpp/Projects/Gui/installer/Resources");
 
-    auto Resources =
-        std::make_shared<TResources>("E:/Cpp/Projects/Gui/installer/Resources");
+int main(int argc, char *argv[]) {
+  int i;	
+  {
+    QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
+
 
     QGuiApplication a(argc, argv);
 
