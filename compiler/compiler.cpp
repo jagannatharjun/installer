@@ -6,10 +6,15 @@
 #include <gupta/ini.hpp>
 #include <iostream>
 
+//#ifndef NDEBUG
+#define SHOW(...)
+//#endif
+
 int execute(std::string cmd) {
   STARTUPINFO info = {sizeof(info)};
   PROCESS_INFORMATION processInfo;
   SHOW(cmd);
+  cmd.push_back(0);
   int r = CreateProcessA(NULL, &cmd[0], NULL, NULL, TRUE, 0, NULL, NULL, &info, &processInfo);
   if (r) {
     WaitForSingleObject(processInfo.hProcess, INFINITE);
@@ -65,9 +70,9 @@ int main() try {
   //      R"(E:\Cpp\Projects\Gui\installer\build\Deploy\Resources)";
   //#endif
 
-  SHOW(InstallerExePath.string());
-  SHOW(outInstallerExe.string());
-  SHOW(ResourcesFolder.string());
+  //  SHOW(InstallerExePath.string());
+  //  SHOW(outInstallerExe.string());
+  //  SHOW(ResourcesFolder.string());
 
   if (!std::filesystem::exists(InstallerExePath)) {
     std::cerr << InstallerExePath << " doesn't exists";

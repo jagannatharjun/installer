@@ -17,11 +17,10 @@ Item {
             anchors.bottom: parent.bottom
             leftPadding: 4
             verticalAlignment: Text.AlignVCenter
-            text: "INSTALLATION PROGRESS"
+            text: "VERIFYING FILES"
             font.family: defaultFont.name
             font.pixelSize: 18
             color: "white"
-
         }
     }
 
@@ -29,7 +28,9 @@ Item {
         x: 277
         y: 131
         id: currentProgressText
-        text: "Current Progress: " + installer_info.progress.toFixed(2) + '% | ' + readableSize2(installer_info.bytesPerSec) + '/sec'
+        text: "Current Progress: " + installer_info.progress.toFixed(
+                  2) + '% | ' + readableSize2(
+                  installer_info.bytesPerSec) + '/sec'
         font.family: defaultFont.name
         font.pixelSize: 13
         color: "white"
@@ -46,7 +47,6 @@ Item {
         font.pixelSize: 13
         color: "white"
         font.weight: Font.Light
-
     }
 
     Text {
@@ -58,7 +58,7 @@ Item {
         font.pixelSize: 13
         color: "white"
         font.weight: Font.Light
-    }    
+    }
 
     Image {
         source: "image://resources/images/loop.png"
@@ -84,7 +84,7 @@ Item {
                 elideWidth: statusText.width
                 id: elidedStatus
             }
-            text:  elidedStatus.elidedText
+            text: elidedStatus.elidedText
         }
     }
 
@@ -224,7 +224,7 @@ Item {
             anchors.fill: parent
             leftPadding: 17
             verticalAlignment: Text.AlignVCenter
-            text: "You can speed up the installation by closing other CPU/HDD intensive tasks such as Bit-torrent client"
+            text: "You can use this page to verify integrity of your files"
             wrapMode: Text.WordWrap
             font.family: defaultFont.name
             font.pixelSize: 12
@@ -244,7 +244,7 @@ Item {
             anchors.fill: parent
             leftPadding: 17
             verticalAlignment: Text.AlignVCenter
-            text: "If you receive any errors such as CRC error, click \"Verify File Integrity\" button and make sure your files are not corrupted. If files(s) are corrupted by any changce, rehash using torrent"
+            text: "Incase of verification failure, please use the torrent to rehash your files.\nIf 'Auto Start...' checked and verification failed installation will not start"
             wrapMode: Text.WordWrap
             font.family: defaultFont.name
             font.pixelSize: 12
@@ -256,10 +256,18 @@ Item {
     CusCheckBox2 {
         x: 15
         y: 282
-        text: 'HIBERNATE PC AFTER INSTALLATION FINISHED'
+        id: autoStartInstallationCheck
+        text: 'AUTO START INSTALLATION WHEN DONE'
         font.pixelSize: 10
-        Component.onCompleted: checked = installer_info.hibernatePCAfterInstallation
-        onCheckedChanged: installer_info.hibernatePCAfterInstallation = checked
+        checked: true
+
+        Connections {
+            target: installer_info
+            onVerificationCompleted: {
+                if (autoStartInstallationCheck.checked)
+                    nextButtonClicked(4);
+            }
+        }
     }
 
     Rectangle {

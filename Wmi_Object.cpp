@@ -351,3 +351,92 @@ WMI_Object::property_t getWmiProp(wstring ObjectClass, wstring ObjectProperty) {
 
   return res; // Program successfully completed.
 }
+
+CpuUsage::CpuUsage() {
+  // Get the local locator object
+  CIMTYPE variant;
+  VARIANT VT;
+
+  CoCreateInstance(CLSID_WbemLocator, NULL, CLSCTX_INPROC_SERVER, IID_IWbemLocator,
+                   (void **)&pWbemLocator);
+
+  // Connect to the desired namespace
+
+  HRESULT hr = WBEM_S_NO_ERROR;
+
+  hr = pWbemLocator->ConnectServer(L"\\\\.\\root\\cimv2", // Namespace name
+                                   NULL,                  // User name
+                                   NULL,                  // Password
+                                   NULL,                  // Locale
+                                   0L,                    // Security flags
+                                   NULL,                  // Authority
+                                   NULL,                  // Wbem context
+                                   &pNameSpace            // Namespace
+  );
+
+  if (SUCCEEDED(hr)) {
+    // Set namespace security.
+    IUnknown *pUnk = NULL;
+    pNameSpace->QueryInterface(IID_IUnknown, (void **)&pUnk);
+
+    hr = CoSetProxyBlanket(pNameSpace, RPC_C_AUTHN_WINNT, RPC_C_AUTHZ_NONE, NULL,
+                           RPC_C_AUTHN_LEVEL_DEFAULT, RPC_C_IMP_LEVEL_IMPERSONATE, NULL, EOAC_NONE);
+    if (FAILED(hr)) {
+      cout << "Cannot set proxy blanket. Error code: 0x" << hex << hr << endl;
+      pNameSpace->Release();
+    }
+
+    hr = CoSetProxyBlanket(pUnk, RPC_C_AUTHN_WINNT, RPC_C_AUTHZ_NONE, NULL,
+                           RPC_C_AUTHN_LEVEL_DEFAULT, RPC_C_IMP_LEVEL_IMPERSONATE, NULL, EOAC_NONE);
+    if (FAILED(hr)) {
+      cout << "Cannot set proxy blanket. Error code: 0x" << hex << hr << endl;
+      pUnk->Release();
+    }
+
+    // Clean up the IUnknown.
+    pUnk->Release();
+
+    // Create a WMI Refresher and get a pointer to the
+    // IWbemConfigureRefresher interface.
+    CoCreateInstance(CLSID_WbemRefresher, NULL, CLSCTX_INPROC_SERVER, IID_IWbemRefresher,
+                     (void **)&pRefresher);
+
+    pRefresher->QueryInterface(IID_IWbemConfigureRefresher, (void **)&pConfig);
+
+    IWbemClassObject *pObj = NULL;
+
+    // Add the instance to be refreshed.
+    pConfig->AddObjectByPath(pNameSpace, L"Win32_Processor.Name=\"WINWORD\"", 0L, NULL, &pObj,
+                             NULL);
+    if (FAILED(hr)) {
+      cout << "Cannot add object. Error code: 0x" << hex << hr << endl;
+      pNameSpace->Release();
+    }
+
+    // For quick property retrieval, use IWbemObjectAccess.
+    pObj->QueryInterface(IID_IWbemObjectAccess, (void **)&pAcc);
+
+    // This is not required.
+    pObj->Release();
+
+    // Get a property handle for the VirtualBytes property.
+    pAcc->GetPropertyHandle(L"LoadPercentage", &variant, &loadPercentageHandle);
+
+    // Clean up all the objects.
+  }
+}
+
+CpuUsage::~CpuUsage() {
+  pAcc->Release();
+  pConfig->Release();
+  pRefresher->Release();
+  pNameSpace->Release();
+  pWbemLocator->Release();
+}
+
+int CpuUsage::getCpuUsagePercent() {
+  DWORD dwLoadPercentage;
+  pRefresher->Refresh(0L);
+  pAcc->ReadDWORD(loadPercentageHandle, &dwLoadPercentage);
+  return dwLoadPercentage;
+}

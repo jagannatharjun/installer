@@ -95,8 +95,7 @@ BOOL RegDelnodeRecurse(HKEY hKeyRoot, LPTSTR lpSubKey) {
 
       dwSize = MAX_PATH;
 
-      lResult =
-          RegEnumKeyEx(hKey, 0, szName, &dwSize, NULL, NULL, NULL, &ftWrite);
+      lResult = RegEnumKeyEx(hKey, 0, szName, &dwSize, NULL, NULL, NULL, &ftWrite);
 
     } while (lResult == ERROR_SUCCESS);
   }
@@ -146,8 +145,9 @@ std::string getexename() {
 int execute(std::string cmd) {
   STARTUPINFOA info = {sizeof(info)};
   PROCESS_INFORMATION processInfo;
-  int r = CreateProcessA(NULL, &cmd[0], NULL, NULL, TRUE, CREATE_NO_WINDOW,
-                         NULL, NULL, &info, &processInfo);
+  cmd.push_back(0);
+  int r = CreateProcessA(NULL, &cmd[0], NULL, NULL, TRUE, CREATE_NO_WINDOW, NULL, NULL, &info,
+                         &processInfo);
   if (!r) {
     throw std::runtime_error{"failed to execute - " + cmd};
   }
@@ -176,9 +176,7 @@ std::vector<std::filesystem::path> shortcutFiles() {
   return files;
 }
 
-std::wstring toStdWString(const std::string &str) {
-  return std::wstring(str.begin(), str.end());
-}
+std::wstring toStdWString(const std::string &str) { return std::wstring(str.begin(), str.end()); }
 
 std::string getappfolder() {
   auto e = getexename();
@@ -197,9 +195,8 @@ template <typename... T> void writelines(const char *srcfile, T... lines) {
 }
 
 #ifdef NDEBUG
-#define MAIN                                                                   \
-  __stdcall WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,              \
-                    LPSTR lpCmdLine, int nShowCmd)
+#define MAIN                                                                                       \
+  __stdcall WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd)
 #else
 #define MAIN main()
 #endif
@@ -233,9 +230,8 @@ int MAIN {
     printf("appfolder - %s\n", getappfolder().c_str());
     auto msgBoxRet = IDYES;
     if (!silentUninstall)
-      msgBoxRet = MessageBoxA(
-          NULL, ("Do you really want to uninstall - " + app + "?").c_str(),
-          "Uninstaller", MB_YESNO);
+      msgBoxRet = MessageBoxA(NULL, ("Do you really want to uninstall - " + app + "?").c_str(),
+                              "Uninstaller", MB_YESNO);
     if (msgBoxRet != IDYES)
       return 0;
 
@@ -244,14 +240,11 @@ int MAIN {
       if (exists(sf))
         remove(sf);
 
-    if (!RegDelnode(
-            HKEY_LOCAL_MACHINE,
-            (LR"(Software\Microsoft\Windows\CurrentVersion\Uninstall\)" +
-             toStdWString(app))
-                .c_str())) {
+    if (!RegDelnode(HKEY_LOCAL_MACHINE,
+                    (LR"(Software\Microsoft\Windows\CurrentVersion\Uninstall\)" + toStdWString(app))
+                        .c_str())) {
       if (!silentUninstall)
-        MessageBoxA(NULL, "Failed to Delete Registry Keys", "Uninstaller",
-                    MB_OK);
+        MessageBoxA(NULL, "Failed to Delete Registry Keys", "Uninstaller", MB_OK);
     }
 
     if (!silentUninstall)
@@ -259,14 +252,12 @@ int MAIN {
 
     auto bat = std::filesystem::temp_directory_path() / "del.bat";
 
-    execute(("cmd.exe /C ping 1.1.1.1 -n 1 -w 3000 > Nul & rd /s /q \"" +
-             getappfolder() + "\" & rmdir \"" + getappfolder() + "\""));
+    execute(("cmd.exe /C ping 1.1.1.1 -n 1 -w 3000 > Nul & rd /s /q \"" + getappfolder() +
+             "\" & rmdir \"" + getappfolder() + "\""));
 
   } catch (std::exception &e) {
     if (!silentUninstall)
-      MessageBoxA(
-          NULL,
-          ("Uninstallation failed because - " + std::string(e.what())).c_str(),
-          "Uninstaller", MB_OK);
+      MessageBoxA(NULL, ("Uninstallation failed because - " + std::string(e.what())).c_str(),
+                  "Uninstaller", MB_OK);
   }
 }

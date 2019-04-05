@@ -35,4 +35,24 @@ private:
 
 WMI_Object::property_t getWmiProp(std::wstring ObjectClass, std::wstring ObjectProperty);
 
+class IWbemRefresher;
+class IWbemConfigureRefresher;
+class IWbemObjectAccess;
+
+class CpuUsage {
+  long loadPercentageHandle = 0;
+
+  IWbemServices *pNameSpace = NULL;
+  IWbemLocator *pWbemLocator = NULL;
+
+  IWbemRefresher *pRefresher = NULL;
+  IWbemConfigureRefresher *pConfig = NULL;
+  IWbemObjectAccess *pAcc = NULL;
+
+public:
+  CpuUsage();
+  ~CpuUsage();
+  int getCpuUsagePercent();
+};
+
 #endif // WMI_OBJECT_H

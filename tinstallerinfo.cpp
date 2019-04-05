@@ -8,7 +8,9 @@
 #include "buf_io.h"
 
 #include <QColor>
+#include <QCryptographicHash>
 #include <QDebug>
+
 #include <algorithm>
 #include <filesystem>
 
@@ -17,26 +19,10 @@
 #include <gupta/dll.hpp>
 #include <gupta/windows.hpp>
 
-#include <functional>
-#include <mutex>
-
-// QString OSText = QString::fromStdWString(std::get<std::wstring>(OSInfo.get(L"Caption")));
-// QString BuildNumberText =
-//    QString::fromStdWString(std::get<std::wstring>(OSInfo.get(L"BuildNumber"))) + '.' +
-//    QString::number(/*std::get<uint64_t>(OSInfo.get(L"ServicePackMajorVersion"))*/ 10);
-
-TInstallerInfo::ResourcePtr TInstallerInfo::Resources;
-std::filesystem::space_info TInstallerInfo::m_driveInfo;
-QString TInstallerInfo::m_destinationFolder;
-QList<QObject *> TInstallerInfo::componentsPack, TInstallerInfo::languagePack,
-    TInstallerInfo::redestribPack;
-QColor TInstallerInfo::themeColor_;
-TComponent *TInstallerInfo::desktopShortcut, *TInstallerInfo::startMenuShortcut;
-QString TInstallerInfo::websiteUrl_, TInstallerInfo::facebookUrl_, TInstallerInfo::threadUrl_;
-bool TInstallerInfo::terminateInstallation_ = false;
-std::mutex unarcMutex;
-
 #include <ShlObj.h>
+
+using namespace std::chrono_literals;
+
 std::filesystem::path desktopDirectory() {
   PWCHAR dpath = NULL;
   HRESULT hr;
@@ -75,11 +61,119 @@ bool StrToBool(std::string str) {
   return str == "true" || str == "1";
 }
 
+std::vector<std::filesystem::path> SepFiles(std::string s) {
+  std::string cs;
+  std::vector<std::filesystem::path> r;
+  for (auto c : s) {
+    if (c == ',') {
+      r.push_back(TInstallerInfo::expandConstant(QString::fromStdString(cs)).toStdWString());
+      cs.clear();
+    } else
+      cs += c;
+  }
+  if (cs.size())
+    r.push_back(cs);
+  return r;
+}
+
+bool SepFilesExists(std::vector<std::filesystem::path> p) {
+  for (auto &&cp : p)
+    if (!std::filesystem::exists(cp))
+      return false;
+  return p.size();
+}
+
+struct ArcDataFile {
+  std::string ExtractionCmd[20];
+  int64_t OrigSize, CompSize;
+  TComponent *Component;
+  std::string FilePath, Password, Md5Hash;
+  bool Install() { return !Component || Component->checked; };
+  ArcDataFile(std::string line) {
+    int i = 0;
+    line.insert(0, ":");
+    auto insertCmd = [&](auto... c) {
+      assert(i + sizeof...(c) < 20);
+      ((ExtractionCmd[i++] = c), ...);
+    };
+
+    Md5Hash = LineSection(line, "Md5:");
+
+    insertCmd("x");
+
+    if (Password = LineSection(line, "Password:"); !Password.empty()) {
+      insertCmd("-p" + Password);
+    }
+
+    if (auto tmpDir = LineSection(line, "Tmp:"); !tmpDir.empty()) {
+      insertCmd("-w" + TInstallerInfo::expandConstant(tmpDir.c_str()).toStdString());
+    } else {
+      insertCmd("-w" + TInstallerInfo::expandConstant("{tmp}\\").toStdString());
+    }
+
+    if (auto destDir = LineSection(line, "Dest:"); !destDir.empty()) {
+      insertCmd("-dp" + TInstallerInfo::expandConstant(destDir.c_str()).toStdString());
+    } else {
+      insertCmd("-dp" + TInstallerInfo::expandConstant("{app}\\").toStdString());
+    }
+
+    if (auto cfg = TInstallerInfo::expandConstant("{tmp}\\arc.ini").toStdString();
+        std::filesystem::exists(cfg)) {
+      insertCmd("-cfg" + cfg);
+    }
+
+    insertCmd("-o+");
+
+    insertCmd("--",
+              FilePath =
+                  TInstallerInfo::expandConstant(LineSection(line, ":").c_str()).toStdString());
+
+    auto CompStr = LineSection(line, "Comp:", "");
+    if (CompStr.empty()) {
+      Component = nullptr;
+    } else {
+      std::for_each(CompStr.begin(), CompStr.end(), [](auto &c) { c = tolower(c); });
+      auto findComp = [&](const QObject *obj) {
+        auto comp = dynamic_cast<const TComponent *>(obj);
+        assert(comp && "obj is not a TComponent");
+        return comp->name.toLower() == CompStr.c_str();
+      };
+      auto e = std::find_if(TInstallerInfo::languagePack.begin(),
+                            TInstallerInfo::languagePack.end(), findComp);
+      if (e != TInstallerInfo::languagePack.end()) {
+        Component = dynamic_cast<TComponent *>(*e);
+      } else if ((e = std::find_if(TInstallerInfo::componentsPack.begin(),
+                                   TInstallerInfo::componentsPack.end(), findComp)) !=
+                 TInstallerInfo::componentsPack.end()) {
+        Component = dynamic_cast<TComponent *>(*e);
+      } else {
+        Component = nullptr;
+      }
+    }
+  }
+};
+
+// QString OSText = QString::fromStdWString(std::get<std::wstring>(OSInfo.get(L"Caption")));
+// QString BuildNumberText =
+//    QString::fromStdWString(std::get<std::wstring>(OSInfo.get(L"BuildNumber"))) + '.' +
+//    QString::number(/*std::get<uint64_t>(OSInfo.get(L"ServicePackMajorVersion"))*/ 10);
+
+TInstallerInfo::ResourcePtr TInstallerInfo::Resources;
+std::filesystem::space_info TInstallerInfo::m_driveInfo;
+QString TInstallerInfo::m_destinationFolder;
+QList<QObject *> TInstallerInfo::componentsPack, TInstallerInfo::languagePack,
+    TInstallerInfo::redestribPack;
+QColor TInstallerInfo::themeColor_;
+TComponent *TInstallerInfo::desktopShortcut, *TInstallerInfo::startMenuShortcut;
+QString TInstallerInfo::websiteUrl_, TInstallerInfo::facebookUrl_, TInstallerInfo::threadUrl_;
+bool TInstallerInfo::terminateInstallation_ = false;
+
 TComponent *ComponentFromIni(std::string str, QObject *parent) {
   auto c = new TComponent(parent);
   str.insert(0, ":");
   c->name = LineSection(str, ":").c_str();
-  c->checked = StrToBool(LineSection(str, "Checked:"));
+  c->checked = StrToBool(LineSection(str, "Checked:")) ||
+               SepFilesExists(SepFiles(LineSection(str, "Files:")));
   return c;
 }
 
@@ -95,7 +189,7 @@ TRedistributable *RedistribFromIni(std::string str, QObject *parent) {
 TInstallerInfo::TInstallerInfo(QObject *parent) : QObject(parent) {}
 
 TInstallerInfo::~TInstallerInfo() {
-  if (installerState_ != TInstallerStates::InstallationNeverStarted)
+  if (installerThread_.joinable())
     installerThread_.join();
 }
 
@@ -119,10 +213,6 @@ void TInstallerInfo::setResources(TInstallerInfo::ResourcePtr p) {
   threadUrl_ = getUrl("Thread");
   facebookUrl_ = getUrl("Facebook");
 
-  //  SHOW(websiteUrl_);
-  //  SHOW(threadUrl_);
-  //  SHOW(facebookUrl_);
-
   int i = 1;
   std::string name;
   auto readPack = [&](const char *PackName, auto Func) {
@@ -134,6 +224,13 @@ void TInstallerInfo::setResources(TInstallerInfo::ResourcePtr p) {
   readPack("LanguagePacks", [&]() { languagePack.push_back(ComponentFromIni(name, nullptr)); });
   readPack("ComponentPacks", [&]() { componentsPack.push_back(ComponentFromIni(name, nullptr)); });
   readPack("Redistributables", [&]() { redestribPack.push_back(RedistribFromIni(name, nullptr)); });
+
+  for (std::string line =
+           Resources->GetIniValue("Files", "File" + std::to_string(ArcFiles.size() + 1), "");
+       !line.empty();
+       line = Resources->GetIniValue("Files", "File" + std::to_string(ArcFiles.size() + 1), "")) {
+    ArcFiles.emplace_back(line);
+  }
 }
 
 void TInstallerInfo::setDestinationFolderImpl(const QString &destinationFolder) {
@@ -149,6 +246,13 @@ void TInstallerInfo::setDestinationFolderImpl(const QString &destinationFolder) 
 
 TInstallerInfo::TInstallerStates TInstallerInfo::getInstallerState() const {
   return installerState_;
+}
+
+void TInstallerInfo::waitForGuiEvents() {
+  if (isTerminateInstallation())
+    throw std::runtime_error{"User Terminated the Installation"};
+  while (getInstallerState() == TInstallerInfo::TInstallerStates::InstallationPaused)
+    std::this_thread::sleep_for(100ms);
 }
 
 void TInstallerInfo::setStatusMessage(const QString &StatusMessage) {
@@ -274,8 +378,10 @@ float GetCPULoad() {
 }
 
 int TInstallerInfo::cpuUsage() {
-  // return std::get<uint64_t>(getWmiProp(L"Win32_Processor", L"LoadPercentage"));
-  return GetCPULoad() * 100;
+  return std::get<uint64_t>(getWmiProp(L"Win32_Processor", L"LoadPercentage"));
+  // return GetCPULoad() * 100;
+  // static CpuUsage c;
+  // return c.getCpuUsagePercent();
 }
 
 QString TInstallerInfo::expandConstant(QString str) {
@@ -303,71 +409,19 @@ QString TInstallerInfo::aboutTxt() {
 
   auto about_txt = QString::fromLocal8Bit(reinterpret_cast<char *>(txt.data()), txt.size());
   SHOW(about_txt);
+
   return about_txt;
 }
+
+int TInstallerInfo::remainingTime() { return remainingTime_; }
+
+int TInstallerInfo::totalTime() { return totalTime_; }
 
 using Number = int;
 using cbtype = int __stdcall(char *what, Number int1, Number int2, char *str);
 
 int BytesPerSec;
-std::string ArcErrorMsg;
-TInstallerInfo *Installer;
-intmax_t TotalFiles, OrigSize, CompSize, ArcError, MaxArcWriteSize, LastArchivesWriteSize,
-    CurrentArchiveWriteSize;
-
-int __stdcall freearcinfo_callback(char *what, Number int1, Number int2, char *str) {
-  if (!std::strcmp("total_files", what)) {
-    TotalFiles = int1;
-  } else if (!std::strcmp("origsize", what)) {
-    OrigSize = (intmax_t)int1 << 20;
-  } else if (!std::strcmp("compsize", what)) {
-    CompSize = (intmax_t)int1 << 20;
-  } else if (!std::strcmp("error", what)) {
-    ArcErrorMsg = str;
-    ArcError = int1;
-    ExitThread(-1);
-  }
-  debug("%:unhandled what - %", __func__, what);
-  if (TInstallerInfo::isTerminateInstallation()) {
-    debug("quitting installation");
-    return -127;
-  }
-  while (Installer->getInstallerState() == TInstallerInfo::TInstallerStates::InstallationPaused) {
-    using namespace std::chrono_literals;
-    std::this_thread::sleep_for(100ms);
-  }
-  return 1;
-}
-
-int __stdcall cb(char *what, Number int1, Number int2, char *str) {
-  unarcMutex.lock();
-  SCOPE_EXIT { unarcMutex.unlock(); };
-  if (!std::strcmp("write", what)) {
-    CurrentArchiveWriteSize = (uint64_t)int1 << 20;
-    Installer->setProgress((LastArchivesWriteSize + CurrentArchiveWriteSize) * 100.0 /
-                           MaxArcWriteSize);
-    return 0;
-  } else if (!std::strcmp("filename", what)) {
-    Installer->setStatusMessage(QString("Unpacking %1").arg(str));
-    return 0;
-  } else if (!std::strcmp("error", what)) {
-    ArcErrorMsg = str;
-    ArcError = int1;
-    unarcMutex.unlock();
-    ExitThread(-1);
-    return 0;
-  }
-  debug("%:unhandled what - %", __func__, what);
-  if (TInstallerInfo::isTerminateInstallation()) {
-    debug("quitting installation");
-    return -127;
-  }
-  while (Installer->getInstallerState() == TInstallerInfo::TInstallerStates::InstallationPaused) {
-    using namespace std::chrono_literals;
-    std::this_thread::sleep_for(100ms);
-  }
-  return 1;
-}
+intmax_t MaxArcWriteSize, LastArchivesWriteSize, CurrentArchiveWriteSize;
 
 void TInstallerInfo::startInstallation() {
   debug("starting installation");
@@ -375,7 +429,15 @@ void TInstallerInfo::startInstallation() {
     debug("can't start installation twice");
     return;
   }
+  if (installerThread_.joinable())
+    installerThread_.join();
   installerThread_ = std::thread(&TInstallerInfo::startInstallationImpl, this);
+}
+
+void TInstallerInfo::startVerification() {
+  if (installerThread_.joinable())
+    installerThread_.join();
+  installerThread_ = std::thread(&TInstallerInfo::startVerificationImpl, this);
 }
 
 void TInstallerInfo::setDestinationFolder(QString destinationFolder) {
@@ -435,6 +497,7 @@ decltype(std::chrono::high_resolution_clock::now()) InstallationStartTime;
 auto now() { return std::chrono::high_resolution_clock::now(); }
 
 inline void TInstallerInfo::setProgress(double progress) {
+
   SHOW(progress);
   Progress_ = progress;
 
@@ -446,84 +509,16 @@ inline void TInstallerInfo::setProgress(double progress) {
   remainingTime_ = totalTime_ - elapsed;
   BytesPerSec = double(CurrentArchiveWriteSize + LastArchivesWriteSize) / elapsed;
   SHOW(BytesPerSec);
-  // emit progressChanged();
+  emit progressChanged();
 }
 
-struct ArcDataFile {
-  std::string ExtractionCmd[20];
-  int64_t OrigSize, CompSize;
-  TComponent *Component;
-  std::string FileName;
-  bool Install;
-  ArcDataFile(std::string line) {
-    int i = 0;
-    line.insert(0, ":");
-    auto insertCmd = [&](auto... c) {
-      assert(i + sizeof...(c) < 20);
-      ((ExtractionCmd[i++] = c), ...);
-    };
-    insertCmd("x");
-
-    if (auto password = LineSection(line, "Password:"); !password.empty()) {
-      insertCmd("-p", password);
-    }
-
-    if (auto tmpDir = LineSection(line, "Tmp:"); !tmpDir.empty()) {
-      insertCmd("-w" + TInstallerInfo::expandConstant(tmpDir.c_str()).toStdString());
-    } else {
-      insertCmd("-w" + TInstallerInfo::expandConstant("{tmp}\\").toStdString());
-    }
-
-    if (auto destDir = LineSection(line, "Dest:"); !destDir.empty()) {
-      insertCmd("-dp" + TInstallerInfo::expandConstant(destDir.c_str()).toStdString());
-    } else {
-      insertCmd("-dp" + TInstallerInfo::expandConstant("{app}\\").toStdString());
-    }
-
-    if (auto cfg = TInstallerInfo::expandConstant("{tmp}\\arc.ini").toStdString();
-        std::filesystem::exists(cfg)) {
-      insertCmd("-cfg" + cfg);
-    }
-
-    insertCmd("-o+");
-
-    insertCmd("--",
-              FileName =
-                  TInstallerInfo::expandConstant(LineSection(line, ":").c_str()).toStdString());
-
-    auto CompStr = LineSection(line, "Comp:", "");
-    if (CompStr.empty()) {
-      Component = nullptr;
-    } else {
-      std::for_each(CompStr.begin(), CompStr.end(), [](auto &c) { c = tolower(c); });
-      auto findComp = [&](const QObject *obj) {
-        auto comp = dynamic_cast<const TComponent *>(obj);
-        assert(comp && "obj is not a TComponent");
-        return comp->name.toLower() == CompStr.c_str();
-      };
-      auto e = std::find_if(TInstallerInfo::languagePack.begin(),
-                            TInstallerInfo::languagePack.end(), findComp);
-      if (e != TInstallerInfo::languagePack.end()) {
-        Component = dynamic_cast<TComponent *>(*e);
-      } else if ((e = std::find_if(TInstallerInfo::componentsPack.begin(),
-                                   TInstallerInfo::componentsPack.end(), findComp)) !=
-                 TInstallerInfo::componentsPack.end()) {
-        Component = dynamic_cast<TComponent *>(*e);
-      } else {
-        Component = nullptr;
-      }
-    }
-    Install = !Component || Component->checked;
-    if (Component)
-      debug("% belongs to %(checked = %)", FileName, Component->name, Component->checked);
-    debug("install = %", Install);
-  }
-};
+std::vector<ArcDataFile> TInstallerInfo::ArcFiles;
 
 #include <powrprof.h>
 template <typename... Args> int execute(Args... a) {
   std::string cmd;
   ((cmd += std::string("\"") + a + "\" "), ...);
+  cmd.push_back(0);
   STARTUPINFOA info = {sizeof(info)};
   PROCESS_INFORMATION processInfo;
   SHOW(cmd);
@@ -544,6 +539,7 @@ PROCESS_INFORMATION processInfo_nowait = {0};
 template <typename... Args> int execute_nowait(Args... a) {
   std::string cmd;
   ((cmd += std::string("\"") + a + "\" "), ...);
+  cmd.push_back(0);
   info_nowait = {sizeof(info_nowait)};
   SHOW(cmd);
   int r = CreateProcessA(NULL, &cmd[0], NULL, NULL, TRUE, CREATE_NO_WINDOW, NULL, NULL,
@@ -565,6 +561,14 @@ void TInstallerInfo::startInstallationImpl() try {
   InstallationStartTime = now();
   installerState_ = TInstallerStates::InstallationRunning;
 
+  Progress_ = 0;
+  totalTime_ = 0;
+  remainingTime_ = 0;
+  BytesPerSec = 0;
+  emit progressChanged();
+
+  setStatusMessage("Preparing");
+
   SCOPE_EXIT {
     installerRunning_ = false;
     if (hibernatePCAfterInstallation_)
@@ -574,6 +578,7 @@ void TInstallerInfo::startInstallationImpl() try {
   SCOPE_FAILURE {
     installerState_ = TInstallerStates::InstallationFailed;
   }; // declare before, since extract uninstaller may fail
+
   // extract it before, so that can be called on failure
   auto uninstaller_path = Resources->extractFile(
       TResources::path(destinationFolder().toStdWString()) / "Uninstall\\uninstaller.exe",
@@ -584,40 +589,34 @@ void TInstallerInfo::startInstallationImpl() try {
     execute(uninstaller_path.string(), "/silent");
   };
 
-  std::vector<ArcDataFile> ArcDataFiles;
-  for (std::string line =
-           Resources->GetIniValue("Files", "File" + std::to_string(ArcDataFiles.size() + 1), "");
-       !line.empty(); line = Resources->GetIniValue(
-                          "Files", "File" + std::to_string(ArcDataFiles.size() + 1), "")) {
-    ArcDataFiles.emplace_back(line);
-  }
-
   auto host_exe = Resources->extractTemporaryFile("private/host.exe").string();
   // auto host_exe = std::string(
   //    R"(E:/Cpp/Projects/Build/build-unarc_x64-boost/build-unarc_x64-boost-Desktop_Qt_5_12_1_MSVC2017_32bit-Default/host.exe)");
   std::string LastError;
-  Installer = this;
   std::thread arcExtract([&]() {
     MaxArcWriteSize = 0;
     gupta::SharedMemory UnarcMem;
+    setStatusMessage("Extracting Info");
     if (!UnarcMem.create(random_key(), 1024)) {
       LastError = "Failed to Create Shared Memory";
       return;
     }
-    for (auto &file : ArcDataFiles) {
-      if (!file.Install)
+    for (auto &file : ArcFiles) {
+      if (!file.Install())
         continue;
-      if (!std::filesystem::exists(file.FileName)) {
-        LastError = gupta::format("% doesn't exist", file.FileName);
+      if (!std::filesystem::exists(file.FilePath)) {
+        LastError = gupta::format("% doesn't exist", file.FilePath);
         return;
       }
+
       {
-        UnarcMem.lock();
         byte_stream s = UnarcMem.data();
         s.write("l");
-        s.write(file.FileName);
-        s.write("");
-        UnarcMem.unlock();
+        if (file.Password.size()) {
+          SHOW(file.Password);
+          s.write("-p" + file.Password);
+        }
+        s.write(file.FilePath);
       }
 
       if (!execute(host_exe, UnarcMem.name())) {
@@ -637,16 +636,19 @@ void TInstallerInfo::startInstallationImpl() try {
           else if (what == "compsize")
             file.CompSize = int1;
           else if (what == "error") {
-            LastError = "Failed to retrieve Data File Info: " + s.read<std::string>();
+            LastError = gupta::format("Failed in Preparations for %: %", file.FilePath,
+                                      s.read<std::string>());
             return;
           } else if (what == "completed") {
             break;
           } else if (what != "total_files") {
-            LastError = "Invalid What by Host - " + what;
+            LastError = gupta::format("Failed in Preparations for %: %", file.FilePath,
+                                      "Invalid What by host - " + what);
             return;
           }
         }
       }
+
       MaxArcWriteSize += file.OrigSize;
       SHOW(file.OrigSize);
       SHOW(file.CompSize);
@@ -656,8 +658,9 @@ void TInstallerInfo::startInstallationImpl() try {
     SHOW(MaxArcWriteSize);
     LastArchivesWriteSize = 0;
 
-    for (auto &file : ArcDataFiles) {
-      if (!file.Install)
+    setStatusMessage("Starting Extraction");
+    for (auto &file : ArcFiles) {
+      if (!file.Install())
         continue;
       int i;
       byte_stream s = UnarcMem.data();
@@ -689,11 +692,9 @@ void TInstallerInfo::startInstallationImpl() try {
             auto info = s.read<InfoType>();
             if (info == InfoType::WriteSize) {
               CurrentArchiveWriteSize = s.read<uint64_t>();
-              setProgress((LastArchivesWriteSize + CurrentArchiveWriteSize) * 100.0 /
-                          MaxArcWriteSize);
             } else if (info == InfoType::Error) {
-              LastError = gupta::format("Unpacking Failed for %, error - %", file.FileName,
-                                        s.read<std::string>());
+              LastError =
+                  gupta::format("Unpacking Failed for %, %", file.FilePath, s.read<std::string>());
               return;
             } else if (info == InfoType::Completed) {
               break;
@@ -702,14 +703,9 @@ void TInstallerInfo::startInstallationImpl() try {
             if (info == InfoType::FileName) {
               setStatusMessage("Unpacking " + QString::fromStdString(s.read<std::string>()));
             }
-            while (installerState_ == TInstallerStates::InstallationPaused)
-              std::this_thread::sleep_for(100ms);
-            if (isTerminateInstallation()) {
-              LastError = "User Terminated Installation";
-              TerminateProcess(processInfo_nowait.hProcess, -1);
-              return;
-            }
+            waitForGuiEvents();
           }
+          setProgress((LastArchivesWriteSize + CurrentArchiveWriteSize) * 100.0 / MaxArcWriteSize);
           std::this_thread::sleep_for(500ms);
         }
         LastArchivesWriteSize += file.OrigSize;
@@ -719,12 +715,9 @@ void TInstallerInfo::startInstallationImpl() try {
   });
   arcExtract.join();
 
-  //  if (ArcErrorMsg.size())
-  //    LastError = "FREEARC: " + ArcErrorMsg;
   if (LastError.size())
     throw std::runtime_error{LastError};
-  if (isTerminateInstallation())
-    throw std::runtime_error{"User terminated the Installation"};
+  waitForGuiEvents();
 
   for (auto &r : redestribPack) {
     auto rp = dynamic_cast<TRedistributable *>(r);
@@ -741,6 +734,34 @@ void TInstallerInfo::startInstallationImpl() try {
   while ((shortCutline = Resources->GetIniValue("Shortcuts", "Name" + std::to_string(++i), ""))
              .size()) {
     shortCutline.insert(0, ":");
+
+    TComponent *Component;
+    auto CompStr = LineSection(shortCutline, "Comp:", "");
+    if (CompStr.empty()) {
+      Component = nullptr;
+    } else {
+      std::for_each(CompStr.begin(), CompStr.end(), [](auto &c) { c = tolower(c); });
+      auto findComp = [&](const QObject *obj) {
+        auto comp = dynamic_cast<const TComponent *>(obj);
+        assert(comp && "obj is not a TComponent");
+        return comp->name.toLower() == CompStr.c_str();
+      };
+      auto e = std::find_if(TInstallerInfo::languagePack.begin(),
+                            TInstallerInfo::languagePack.end(), findComp);
+      if (e != TInstallerInfo::languagePack.end()) {
+        Component = dynamic_cast<TComponent *>(*e);
+      } else if ((e = std::find_if(TInstallerInfo::componentsPack.begin(),
+                                   TInstallerInfo::componentsPack.end(), findComp)) !=
+                 TInstallerInfo::componentsPack.end()) {
+        Component = dynamic_cast<TComponent *>(*e);
+      } else {
+        Component = nullptr;
+      }
+    }
+    auto createThisShortcut = !Component || Component->checked;
+    if (!createThisShortcut)
+      continue;
+
     std::string name = LineSection(shortCutline, ":") + ".lnk";
     SHOW(name);
     if (name.empty())
@@ -750,6 +771,7 @@ void TInstallerInfo::startInstallationImpl() try {
     if (srcFile.empty())
       continue;
     std::string description = LineSection(shortCutline, "Description:");
+
     SHOW(description);
     if (desktopShortcut->checked && StrToBool(LineSection(shortCutline, "Desktop:", "1"))) {
       SHOW(CreateLink(srcFile.c_str(), (desktopDir / name).wstring().c_str(),
@@ -776,14 +798,71 @@ void TInstallerInfo::startInstallationImpl() try {
   setStatusMessage("Completed");
   setProgress(100);
 
-  if (isTerminateInstallation())
-    throw std::runtime_error{"User terminated the Installation"};
+  waitForGuiEvents();
 
   emit installationCompleted(QString::fromStdString(LastError));
 
 } catch (std::exception &e) {
   debug("error while installation - %", e.what());
   emit installationFailed(e.what());
+}
+
+void TInstallerInfo::startVerificationImpl() try {
+  InstallationStartTime = now();
+  installerState_ = TInstallerStates::InstallationRunning;
+  SCOPE_EXIT { installerState_ = TInstallerStates::InstallationNeverStarted; };
+
+  QCryptographicHash Hasher(QCryptographicHash::Md5);
+  MaxArcWriteSize = 0;
+  LastArchivesWriteSize = 0;
+
+  std::for_each(ArcFiles.begin(), ArcFiles.end(), [&](ArcDataFile &f) {
+    if (f.Md5Hash.empty()) {
+      throw std::runtime_error{f.FilePath + " is not provided with MD5 hash"};
+    }
+    if (f.Install()) {
+      if (!std::filesystem::exists(f.FilePath)) {
+        throw std::runtime_error{f.FilePath + " doesn't exists"};
+      }
+      MaxArcWriteSize += std::filesystem::file_size(f.FilePath);
+    }
+  });
+
+  {
+    char data[1024 * 512];
+    size_t data_sz = 0;
+    std::for_each(ArcFiles.begin(), ArcFiles.end(), [&](ArcDataFile &f) {
+      auto file_name = std::filesystem::path(f.FilePath).filename();
+      setStatusMessage("Verifying " + QString::fromStdWString(file_name.wstring()));
+      Hasher.reset();
+      FILE *file = std::fopen(f.FilePath.c_str(), "rb");
+      if (!file) {
+        throw std::runtime_error{"Failed to read " + f.FilePath};
+      }
+      SCOPE_EXIT { std::fclose(file); };
+      CurrentArchiveWriteSize = 0;
+      while ((data_sz = std::fread(data, 1, sizeof data, file))) {
+        Hasher.addData(data, data_sz);
+        CurrentArchiveWriteSize += data_sz;
+        setProgress((CurrentArchiveWriteSize + LastArchivesWriteSize) * 100.0 / MaxArcWriteSize);
+        waitForGuiEvents();
+      }
+      LastArchivesWriteSize += CurrentArchiveWriteSize;
+      auto resultHash = Hasher.result().toHex().toStdString();
+      waitForGuiEvents();
+      if (resultHash != f.Md5Hash) {
+        throw std::runtime_error{
+            "Hash doesn't match for " + file_name.string() +
+            gupta::format(", Produced = \"%\" Required = \"%\"", resultHash, f.Md5Hash)};
+      }
+    });
+  }
+  waitForGuiEvents();
+  setStatusMessage("Verification Completed Successfully");
+  emit verificationCompleted("Verification Completed Successfully");
+} catch (std::exception &e) {
+  setStatusMessage(e.what());
+  emit verificationFailed(QString::fromLocal8Bit(e.what()));
 }
 
 void TComponent::setChecked(bool s) {

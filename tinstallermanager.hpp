@@ -8,6 +8,7 @@ class QQuickView;
 class TResources;
 class QQuickImageProvider;
 class QMediaPlayer;
+class TInstallerInfo;
 
 class TInstallerManager : public QObject {
   Q_OBJECT
@@ -22,6 +23,7 @@ private:
   QQuickImageProvider *imageProvider;
   std::shared_ptr<TResources> Resources_;
   QMediaPlayer *Player_;
+  TInstallerInfo *InstallerInfo_;
 
 private slots:
   void musicButtonClicked();

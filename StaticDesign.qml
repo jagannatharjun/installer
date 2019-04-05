@@ -146,6 +146,13 @@ Image {
             height: 45
             color: "black"
 
+            MouseArea {
+                anchors.fill: parent
+                onPressed:  {
+                    nextButtonClicked(0)
+                }
+            }
+
             Image {
                 id: overview_tick
                 source: "image://resources/images/tick_dark.png"
@@ -179,6 +186,13 @@ Image {
             width: 133
             height: 45
             color: "black"
+
+            MouseArea {
+                anchors.fill: parent
+                onPressed:  {
+                    nextButtonClicked(1)
+                }
+            }
 
             Image {
                 id: directory_tick
@@ -214,6 +228,13 @@ Image {
             height: 45
             color: "black"
 
+            MouseArea {
+                anchors.fill: parent
+                onPressed:  {
+                    nextButtonClicked(2)
+                }
+            }
+
             Image {
                 id: components_tick
                 source: "image://resources/images/tick_dark.png"
@@ -247,6 +268,13 @@ Image {
             width: 133
             height: 45
             color: "black"
+
+            MouseArea {
+                anchors.fill: parent
+                onPressed:  {
+                    nextButtonClicked(3)
+                }
+            }
 
             Image {
                 id: requirements_tick
@@ -370,6 +398,18 @@ Image {
         }
 
         text: 'About'
+    }
+
+    CusButton {
+        x: 314
+        y: 441
+        id: integrity_button
+
+        onClicked: {
+            verifyFilesButtonClicked()
+        }
+
+        text: 'Verify Files'
     }
 
     Button {

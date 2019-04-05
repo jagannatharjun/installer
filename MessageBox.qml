@@ -15,9 +15,6 @@ Dialog {
     modal:true
     dim:true
 
-    Keys.onEnterPressed: accept()
-    Keys.onReturnPressed: accept()
-
     onVisibleChanged:  {
         if (visible) {
             focus = true

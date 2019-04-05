@@ -22,8 +22,8 @@
 #include "windows.h"
 #include "winnls.h"
 
-HRESULT CreateLink(LPCWSTR lpszPathObj, LPCWSTR lpszPathLink, LPCWSTR lpszDesc,
-                   const wchar_t *workingdir) {
+extern "C" HRESULT CreateLink(const wchar_t *lpszPathObj, const wchar_t *lpszPathLink,
+                              const wchar_t *lpszDesc, const wchar_t *workingDir) {
   HRESULT hres;
   IShellLink *psl;
 
@@ -37,7 +37,7 @@ HRESULT CreateLink(LPCWSTR lpszPathObj, LPCWSTR lpszPathLink, LPCWSTR lpszDesc,
     // Set the path to the shortcut target and add the description.
     psl->SetPath(lpszPathObj);
     psl->SetDescription(lpszDesc);
-    psl->SetWorkingDirectory(workingdir);
+    psl->SetWorkingDirectory(workingDir);
 
     // Query IShellLink for the IPersistFile interface, used for saving the
     // shortcut in persistent storage.

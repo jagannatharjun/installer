@@ -57,6 +57,8 @@ private:
 TInstallerManager::TInstallerManager(std::shared_ptr<TResources> Resources)
     : Resources_(Resources) {
 
+  InstallerInfo_ = new TInstallerInfo(this);
+
   imageProvider = new TResourcesImageProvider(Resources);
   Application_.addImageProvider("resources", imageProvider);
 
@@ -93,6 +95,7 @@ TInstallerManager::TInstallerManager(std::shared_ptr<TResources> Resources)
                               QVariant::fromValue(TInstallerInfo::redestribPack));
   rootCtx->setContextProperty("desktopShortcut", (TInstallerInfo::desktopShortcut));
   rootCtx->setContextProperty("startMenuShortcut", (TInstallerInfo::startMenuShortcut));
+  rootCtx->setContextProperty("installer_info", InstallerInfo_);
   // rootCtx->setContextProperty("installer_info", InstallerInfo_);
 
   Application_.load("qrc:/Main.qml");

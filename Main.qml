@@ -2,7 +2,6 @@
 import QtQuick 2.12
 import QtQuick.Controls 2.12
 import QtQuick.Window 2.12
-import Ascent.info 1.0
 import QtWinExtras 1.0
 
 Window {
@@ -13,6 +12,8 @@ Window {
     visible: true
     flags: Qt.Window | Qt.FramelessWindowHint
 
+    property bool isVerificationFailed: false
+    property bool isVerifying: false
     MouseArea {
         anchors.fill: parent
         property point lastMousePos: Qt.point(0, 0)
@@ -34,6 +35,7 @@ Window {
     signal musicButtonClicked
     signal backButtonClicked
     signal aboutButtonClicked
+    signal verifyFilesButtonClicked
 
     signal nextButtonClicked(int source_page)
     signal currentPageChanged(int source_page)
@@ -41,16 +43,22 @@ Window {
     TaskbarButton {
         id: taskbarButton
         visible: true
-        progress.minimum: 0;
-        progress.maximum: 100;
+        progress.minimum: 0
+        progress.maximum: 100
         progress.visible: true
-       // progress.value: installer_info.progress
+        progress.value: installer_info.progress
     }
 
     onClosing: {
-        close.accepted = installer_info.isInstallationFailed() || staticDesign.pageNumber == 6
+        close.accepted = installer_info.isInstallationFailed()
+                || staticDesign.pageNumber == 6 || isVerificationFailed
         if (!close.accepted)
             closeDialog.open()
+    }
+
+    onVisibilityChanged: {
+        if (visible)
+            raise()
     }
 
     MessageBox {
@@ -64,7 +72,8 @@ Window {
         }
 
         onAccepted: {
-            installer_info.resumeInstallation() // wake up the unarc extraction thread
+            installer_info.resumeInstallation(
+                        ) // wake up the unarc extraction thread
             installer_info.terminateInstallation(true)
             Qt.quit()
         }
@@ -77,7 +86,7 @@ Window {
 
     property string installationError: ''
     MessageBox {
-        id : errorBox
+        id: errorBox
         boxTitle: "Error"
         boxCaption1: "Error"
         boxCaption2: installationError
@@ -88,13 +97,22 @@ Window {
         }
     }
 
-    Installerinfo {
-        id: installer_info
+    Connections {
+        target: installer_info
         onInstallationFailed: {
-            installationError = msg;
+            installationError = msg
             taskbarButton.progress.stop()
             console.log(msg)
             console.log(installer_info.isInstallationFailed())
+            errorBox.open()
+        }
+        onVerificationCompleted: {
+            isVerifying = false
+        }
+
+        onVerificationFailed: {
+            installationError = msg
+            isVerificationFailed = true
             errorBox.open()
         }
         onInstallationCompleted: {
@@ -115,6 +133,15 @@ Window {
         lower()
     }
 
+    onVerifyFilesButtonClicked: {
+        //if (isVerifying)
+        //    return;
+        isVerifying = true
+        lastPage = staticDesign.pageNumber
+        staticDesign.pageNumber = 7
+    }
+
+
     /*
     property var pageSources: [
         "file:///E:/Cpp/Projects/Gui/installer/Overview.qml",
@@ -125,7 +152,7 @@ Window {
         'file:///E:/Cpp/Projects/Gui/installer/Finalization.qml'
     ]
     */
-    property var pageSources: ["qrc:/About.qml", "qrc:/Overview.qml", 'qrc:/Directory.qml', 'qrc:/Components.qml', 'qrc:/Requirements.qml', 'qrc:/Installation.qml', 'qrc:/Finalization.qml']
+    property var pageSources: ["qrc:/About.qml", "qrc:/Overview.qml", 'qrc:/Directory.qml', 'qrc:/Components.qml', 'qrc:/Requirements.qml', 'qrc:/Installation.qml', 'qrc:/Finalization.qml', 'qrc:/IntegrityPage.qml']
 
     function readableSize(s, t) {
         var m = ['MB', 'GB', 'TB']
@@ -139,7 +166,7 @@ Window {
     }
 
     function readableSize2(s, t) {
-        var m = ['B','KB', 'MB', 'GB', 'TB']
+        var m = ['B', 'KB', 'MB', 'GB', 'TB']
         t = typeof t !== 'undefined' ? t : 2
         for (var i = 0; i < m.length; i++)
             if (s < 1024)
@@ -158,15 +185,12 @@ Window {
 
     FontLoader {
         id: defaultFont
-
-        //name: "Segoe Ui"
-        //name: 'ITC Avant Garde Gothic Pro'
-        source: 'file:///' + installer_info.expandConstant("{tmp}//font.ttf")
+        source: 'file:///' + installer_info.expandConstant("{tmp}/font.ttf")
     }
 
     FontLoader {
         id: defaultFont_light
-        source: 'file:///' + installer_info.expandConstant("{tmp}//font-Bk.ttf")
+        source: 'file:///' + installer_info.expandConstant("{tmp}/font-Bk.ttf")
     }
 
     StaticDesign {
@@ -181,6 +205,8 @@ Window {
         onLoaded: {
             if (staticDesign.pageNumber == 5)
                 installer_info.startInstallation()
+            else if (staticDesign.pageNumber == 7)
+                installer_info.startVerification()
         }
     }
 
@@ -189,6 +215,8 @@ Window {
     }
 
     onNextButtonClicked: {
+        if (staticDesign.pageNumber == 5 || isVerifying)
+            return
         console.log('next button clicked')
         console.log('source_page = ' + source_page)
         if (source_page === 6)
@@ -200,7 +228,11 @@ Window {
     onBackButtonClicked: {
         if (staticDesign.pageNumber == 0) {
             staticDesign.pageNumber = lastPage
-        } else if (staticDesign.pageNumber != 1 && staticDesign.pageNumber != 5)
+        } else if (!isVerifying && staticDesign.pageNumber == 7) {
+            staticDesign.pageNumber = lastPage;
+        } else if (staticDesign.pageNumber != 1
+                   && staticDesign.pageNumber != 5) {
             staticDesign.pageNumber = staticDesign.pageNumber - 1
+        }
     }
 }

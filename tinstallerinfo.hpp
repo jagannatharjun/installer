@@ -16,12 +16,13 @@ class thread;
 }
 
 class TResources;
+struct ArcDataFile;
 
 class TComponent : public QObject {
   Q_OBJECT
 
-  Q_PROPERTY(QString name MEMBER name NOTIFY nameChanged);
-  Q_PROPERTY(bool checked MEMBER checked WRITE setChecked NOTIFY checkedChanged);
+  Q_PROPERTY(QString name MEMBER name NOTIFY nameChanged)
+  Q_PROPERTY(bool checked MEMBER checked WRITE setChecked NOTIFY checkedChanged)
 signals:
   void nameChanged();
   void checkedChanged();
@@ -58,11 +59,13 @@ class TInstallerInfo : public QObject {
   Q_PROPERTY(int diskFreeSpace READ diskFreeSpace NOTIFY sizeStatsChanged)
 
   Q_PROPERTY(bool hibernatePCAfterInstallation MEMBER hibernatePCAfterInstallation_)
+  Q_PROPERTY(bool startInstallationAfterIntegrityCheck MEMBER startInstallationAfterIntegrityCheck_)
 
-  //Q_PROPERTY(double progress READ progress NOTIFY progressChanged)
+  Q_PROPERTY(double progress READ progress NOTIFY progressChanged)
+  Q_PROPERTY(QString remainingTime READ remainingTimeStr NOTIFY progressChanged)
+  Q_PROPERTY(QString totalTime READ totalTimeStr NOTIFY progressChanged)
+  Q_PROPERTY(int bytesPerSec READ bytesPerSec NOTIFY progressChanged)
   Q_PROPERTY(QString statusMessage MEMBER StatusMessage_ NOTIFY statusMessageChanged)
-  // Q_PROPERTY(QString remainingTime READ remainingTime NOTIFY progressChanged)
-  // Q_PROPERTY(QString totalTime READ totalTime NOTIFY progressChanged)
 
 public:
   using ResourcePtr = std::shared_ptr<TResources>;
@@ -98,9 +101,13 @@ public:
   Q_INVOKABLE static QString expandConstant(QString);
   double progress();
   Q_INVOKABLE static QString aboutTxt();
-  Q_INVOKABLE int remainingTime() { return remainingTime_; }
-  Q_INVOKABLE int totalTime() { return totalTime_; }
+  int remainingTime();
+  int totalTime();
+  Q_INVOKABLE QString remainingTimeStr() { return timeToStr(remainingTime_); }
+  Q_INVOKABLE QString totalTimeStr() { return timeToStr(totalTime_); }
+
   Q_INVOKABLE void startInstallation();
+  Q_INVOKABLE void startVerification();
   Q_INVOKABLE QString threadUrl() { return threadUrl_; }
   Q_INVOKABLE QString facebookUrl() { return facebookUrl_; }
   Q_INVOKABLE QString websiteUrl() { return websiteUrl_; }
@@ -113,7 +120,7 @@ public:
   }
   Q_INVOKABLE static bool isTerminateInstallation() { return terminateInstallation_; }
 
-  Q_INVOKABLE int bytesPerSec();
+  int bytesPerSec();
 
   Q_INVOKABLE double getProgress() { return progress(); }
 
@@ -133,6 +140,7 @@ public:
   }
 
   TInstallerStates getInstallerState() const;
+  void waitForGuiEvents();
 
 signals:
   void applicationNameChanged();
@@ -141,10 +149,14 @@ signals:
   void themeColorChanged();
   void sizeStatsChanged();
   void destinationFolderChanged();
- // void progressChanged();
+  void progressChanged();
 
   void installationFailed(QString msg);
   void installationCompleted(QString msg);
+
+  void verificationFailed(QString msg);
+  void verificationCompleted(QString msg);
+
   void statusMessageChanged();
 public slots:
 
@@ -156,16 +168,19 @@ private:
   static bool terminateInstallation_;
   static QString websiteUrl_, facebookUrl_, threadUrl_;
   static QColor themeColor_;
+  static std::vector<ArcDataFile> ArcFiles;
 
   double Progress_ = 0;
   std::thread installerThread_;
-  bool installerRunning_ = false, hibernatePCAfterInstallation_ = false;
-  int remainingTime_ = 0, totalTime_ = 0;
+  bool installerRunning_ = false, hibernatePCAfterInstallation_ = false,
+       startInstallationAfterIntegrityCheck_ = false;
+  int remainingTime_ = 0, totalTime_ = 0; // if changed to progress, remember progressMutex
   QString StatusMessage_;
   TInstallerStates installerState_ = TInstallerStates::InstallationNeverStarted;
   void startInstallationImpl();
+  void startVerificationImpl();
 
-  ComInitializer ComInitialize;
+  //  ComInitializer ComInitialize;
 };
 
 #endif // TINSTALLERINFO_HPP

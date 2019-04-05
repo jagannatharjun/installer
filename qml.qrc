@@ -15,5 +15,6 @@
         <file>About.qml</file>
         <file>MessageBox.qml</file>
         <file>CusButton.qml</file>
+        <file>IntegrityPage.qml</file>
     </qresource>
 </RCC>

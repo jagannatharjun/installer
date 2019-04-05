@@ -1,6 +1,7 @@
 #ifndef BUF_IO_H
 #define BUF_IO_H
 #include <cstdint>
+#include <cstring>
 #include <string>
 
 struct byte_stream {
