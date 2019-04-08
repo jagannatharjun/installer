@@ -404,6 +404,7 @@ Image {
         x: 314
         y: 441
         id: integrity_button
+        enabled: pageNumber < 500
 
         onClicked: {
             verifyFilesButtonClicked()

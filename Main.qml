@@ -134,8 +134,8 @@ Window {
     }
 
     onVerifyFilesButtonClicked: {
-        //if (isVerifying)
-        //    return;
+        if (isVerifying)
+            return;
         isVerifying = true
         lastPage = staticDesign.pageNumber
         staticDesign.pageNumber = 7

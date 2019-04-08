@@ -8,13 +8,19 @@
 #include <QQmlEngine>
 #include <memory>
 
+#include <windows.h>
 //#include <QQmlDebuggingEnabler>
 
 // QQmlDebuggingEnabler enabler;
 
-auto Resources = std::make_shared<TResources>("E:/Cpp/Projects/Gui/installer/Resources");
+int main(int argc, char *argv[]) try {
 
-int main(int argc, char *argv[]) {
+  if (argc == 2 && !strcmp(argv[1], "log")) {
+    std::freopen("log.txt", "w", stderr);
+    std::freopen("log2.txt", "w", stdout);
+  }
+
+  auto Resources = std::make_shared<TResources>("E:/Cpp/Projects/Gui/installer/Resources");
   srand(time(NULL));
   int i;
   {
@@ -35,4 +41,9 @@ int main(int argc, char *argv[]) {
     i = a.exec();
   }
   return i;
+} catch (std::exception &e) {
+  MessageBoxA(NULL, (std::string("Caught Unhandled Exception: ") + e.what()).c_str(), "Error",
+              MB_OK);
+} catch (...) {
+  MessageBoxA(NULL, "Caught Exception of Illegal Type", "Error", MB_OK);
 }

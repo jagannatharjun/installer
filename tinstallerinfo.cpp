@@ -23,10 +23,46 @@
 
 using namespace std::chrono_literals;
 
-std::filesystem::path desktopDirectory() {
+template <typename... Args> int execute(Args... a) {
+  std::string cmd;
+  ((cmd += std::string("\"") + a + "\" "), ...);
+  cmd.push_back(0);
+  STARTUPINFOA info = {sizeof(info)};
+  PROCESS_INFORMATION processInfo;
+  SHOW(cmd);
+  int r = CreateProcessA(NULL, &cmd[0], NULL, NULL, TRUE, CREATE_NO_WINDOW, NULL, NULL, &info,
+                         &processInfo);
+  if (r) {
+    WaitForSingleObject(processInfo.hProcess, INFINITE);
+    CloseHandle(processInfo.hProcess);
+    CloseHandle(processInfo.hThread);
+  } else {
+    debug("Failed to execute \"%\",%", cmd, gupta::GetLastErrorAsString());
+  }
+  return r;
+}
+
+STARTUPINFOA info_nowait = {sizeof(info_nowait)};
+PROCESS_INFORMATION processInfo_nowait = {0};
+template <typename... Args> int execute_nowait(Args... a) {
+  std::string cmd;
+  ((cmd += std::string("\"") + a + "\" "), ...);
+  cmd.push_back(0);
+  info_nowait = {sizeof(info_nowait)};
+  SHOW(cmd);
+  int r = CreateProcessA(NULL, &cmd[0], NULL, NULL, TRUE, CREATE_NO_WINDOW, NULL, NULL,
+                         &info_nowait, &processInfo_nowait);
+  if (r) {
+  } else {
+    debug("Failed to execute \"%\",%", cmd, gupta::GetLastErrorAsString());
+  }
+  return r;
+}
+
+std::filesystem::path getSystemDirectory(const KNOWNFOLDERID &FolderId) {
   PWCHAR dpath = NULL;
   HRESULT hr;
-  SHOW(hr = SHGetKnownFolderPath(FOLDERID_Desktop, 0, NULL, &dpath));
+  SHOW(hr = SHGetKnownFolderPath(FolderId, 0, NULL, &dpath));
   if (!SUCCEEDED(hr))
     return "";
   std::filesystem::path res(dpath);
@@ -34,16 +70,9 @@ std::filesystem::path desktopDirectory() {
   return res;
 }
 
-std::filesystem::path startMenuDirectory() {
-  PWCHAR dpath = NULL;
-  HRESULT hr;
-  SHOW(hr = SHGetKnownFolderPath(FOLDERID_CommonPrograms, 0, NULL, &dpath));
-  if (!SUCCEEDED(hr))
-    return "";
-  std::filesystem::path res(dpath);
-  CoTaskMemFree(dpath);
-  return res;
-}
+std::filesystem::path desktopDirectory() { return getSystemDirectory(FOLDERID_Desktop); }
+std::filesystem::path startMenuDirectory() { return getSystemDirectory(FOLDERID_CommonPrograms); }
+std::filesystem::path sysDirectory() { return getSystemDirectory(FOLDERID_System); }
 
 std::string LineSection(const std::string_view line, const std::string_view str,
                         const std::string &Default = "") {
@@ -89,6 +118,7 @@ struct ArcDataFile {
   TComponent *Component;
   std::string FilePath, Password, Md5Hash;
   bool Install() { return !Component || Component->checked; };
+
   ArcDataFile(std::string line) {
     int i = 0;
     line.insert(0, ":");
@@ -111,11 +141,13 @@ struct ArcDataFile {
       insertCmd("-w" + TInstallerInfo::expandConstant("{tmp}\\").toStdString());
     }
 
-    if (auto destDir = LineSection(line, "Dest:"); !destDir.empty()) {
-      insertCmd("-dp" + TInstallerInfo::expandConstant(destDir.c_str()).toStdString());
-    } else {
-      insertCmd("-dp" + TInstallerInfo::expandConstant("{app}\\").toStdString());
-    }
+    //    if (auto destDir = LineSection(line, "Dest:"); !destDir.empty()) {
+    //      insertCmd("-dp" + TInstallerInfo::expandConstant(destDir.c_str()).toStdString());
+    //    } else {
+    //      insertCmd("-dp" + TInstallerInfo::expandConstant("{app}\\").toStdString());
+    //    }
+
+    insertCmd("-dp"); // add real destination folder at the time for installation
 
     if (auto cfg = TInstallerInfo::expandConstant("{tmp}\\arc.ini").toStdString();
         std::filesystem::exists(cfg)) {
@@ -242,6 +274,8 @@ void TInstallerInfo::setDestinationFolderImpl(const QString &destinationFolder) 
   std::error_code ec;
   auto f = std::filesystem::path(m_destinationFolder.toStdString()).root_name();
   m_driveInfo = std::filesystem::space(f, ec);
+
+  SHOW(m_destinationFolder);
 }
 
 TInstallerInfo::TInstallerStates TInstallerInfo::getInstallerState() const {
@@ -249,10 +283,10 @@ TInstallerInfo::TInstallerStates TInstallerInfo::getInstallerState() const {
 }
 
 void TInstallerInfo::waitForGuiEvents() {
-  if (isTerminateInstallation())
-    throw std::runtime_error{"User Terminated the Installation"};
   while (getInstallerState() == TInstallerInfo::TInstallerStates::InstallationPaused)
     std::this_thread::sleep_for(100ms);
+  if (isTerminateInstallation())
+    throw std::runtime_error{"User Terminated the Installation"};
 }
 
 void TInstallerInfo::setStatusMessage(const QString &StatusMessage) {
@@ -404,12 +438,7 @@ std::vector<uint8_t> GetFile(std::filesystem::path p) {
 
 QString TInstallerInfo::aboutTxt() {
   auto txt = Resources->GetFile("About.txt");
-  //  auto txt =
-  //      GetFile("E:/Cpp/Projects/Gui/installer/build/Deploy/Resources/About.txt");
-
   auto about_txt = QString::fromLocal8Bit(reinterpret_cast<char *>(txt.data()), txt.size());
-  SHOW(about_txt);
-
   return about_txt;
 }
 
@@ -454,18 +483,6 @@ void TInstallerInfo::setDestinationFolder(QString destinationFolder) {
 }
 
 QString TInstallerInfo::timeToStr(long long s) {
-  /*
-  QString res;
-  const char *r[] = {"second(s)", "minute(s)", "hour(s)"};
-  for (int i = 2; i >= 0; i--) {
-    if (c > std::pow(60, i)) {
-      res += QString::number((int)(c / std::pow(60, i))) + r[i] + ' ';
-      c /= std::pow(60, i);
-    }
-  }
-  res.remove(res.size() - 1, 1);
-  return res;
-  */
   if (s <= 0)
     return "0s";
   QString res;
@@ -497,8 +514,6 @@ decltype(std::chrono::high_resolution_clock::now()) InstallationStartTime;
 auto now() { return std::chrono::high_resolution_clock::now(); }
 
 inline void TInstallerInfo::setProgress(double progress) {
-
-  SHOW(progress);
   Progress_ = progress;
 
   auto currentTime = now();
@@ -508,48 +523,13 @@ inline void TInstallerInfo::setProgress(double progress) {
   totalTime_ = elapsed * 100.0 / progress;
   remainingTime_ = totalTime_ - elapsed;
   BytesPerSec = double(CurrentArchiveWriteSize + LastArchivesWriteSize) / elapsed;
-  SHOW(BytesPerSec);
+
   emit progressChanged();
 }
 
 std::vector<ArcDataFile> TInstallerInfo::ArcFiles;
 
 #include <powrprof.h>
-template <typename... Args> int execute(Args... a) {
-  std::string cmd;
-  ((cmd += std::string("\"") + a + "\" "), ...);
-  cmd.push_back(0);
-  STARTUPINFOA info = {sizeof(info)};
-  PROCESS_INFORMATION processInfo;
-  SHOW(cmd);
-  int r = CreateProcessA(NULL, &cmd[0], NULL, NULL, TRUE, CREATE_NO_WINDOW, NULL, NULL, &info,
-                         &processInfo);
-  if (r) {
-    WaitForSingleObject(processInfo.hProcess, INFINITE);
-    CloseHandle(processInfo.hProcess);
-    CloseHandle(processInfo.hThread);
-  } else {
-    debug() << "failed to execute " << cmd;
-  }
-  return r;
-}
-
-STARTUPINFOA info_nowait = {sizeof(info_nowait)};
-PROCESS_INFORMATION processInfo_nowait = {0};
-template <typename... Args> int execute_nowait(Args... a) {
-  std::string cmd;
-  ((cmd += std::string("\"") + a + "\" "), ...);
-  cmd.push_back(0);
-  info_nowait = {sizeof(info_nowait)};
-  SHOW(cmd);
-  int r = CreateProcessA(NULL, &cmd[0], NULL, NULL, TRUE, CREATE_NO_WINDOW, NULL, NULL,
-                         &info_nowait, &processInfo_nowait);
-  if (r) {
-  } else {
-    debug() << "failed to execute " << cmd;
-  }
-  return r;
-}
 
 std::string random_key() { return std::to_string(std::rand()); }
 
@@ -567,14 +547,22 @@ void TInstallerInfo::startInstallationImpl() try {
   BytesPerSec = 0;
   emit progressChanged();
 
+  srand(time(NULL));
+
   setStatusMessage("Preparing");
 
   SCOPE_EXIT {
     installerRunning_ = false;
+    auto taskKill = (sysDirectory() / "taskkill.exe").string();
+    for (auto e : SepFiles(Resources->GetIniValue("TaskKill", "Exe", ""))) {
+      execute(taskKill, "/F", "/IM", e.string());
+    }
     if (hibernatePCAfterInstallation_)
       SHOW(SetSuspendState(true, false, false));
   };
+
   SCOPE_SUCCESS { installerState_ = TInstallerStates::InstallationFinished; };
+
   SCOPE_FAILURE {
     installerState_ = TInstallerStates::InstallationFailed;
   }; // declare before, since extract uninstaller may fail
@@ -583,6 +571,7 @@ void TInstallerInfo::startInstallationImpl() try {
   auto uninstaller_path = Resources->extractFile(
       TResources::path(destinationFolder().toStdWString()) / "Uninstall\\uninstaller.exe",
       "private\\uninstaller.exe");
+
   SCOPE_FAILURE {
     setProgress(0);
     setStatusMessage("Cleaning Up");
@@ -592,136 +581,128 @@ void TInstallerInfo::startInstallationImpl() try {
   auto host_exe = Resources->extractTemporaryFile("private/host.exe").string();
   // auto host_exe = std::string(
   //    R"(E:/Cpp/Projects/Build/build-unarc_x64-boost/build-unarc_x64-boost-Desktop_Qt_5_12_1_MSVC2017_32bit-Default/host.exe)");
-  std::string LastError;
-  std::thread arcExtract([&]() {
-    MaxArcWriteSize = 0;
-    gupta::SharedMemory UnarcMem;
-    setStatusMessage("Extracting Info");
-    if (!UnarcMem.create(random_key(), 1024)) {
-      LastError = "Failed to Create Shared Memory";
+  MaxArcWriteSize = 0;
+  gupta::SharedMemory UnarcMem;
+  setStatusMessage("Extracting Info");
+  if (!UnarcMem.create(random_key(), 1024)) {
+    throw std::runtime_error{"Failed to Create Shared Memory"};
+    return;
+  }
+  for (auto &file : ArcFiles) {
+    if (!file.Install())
+      continue;
+    if (!std::filesystem::exists(file.FilePath)) {
+      throw std::runtime_error{gupta::format("% doesn't exist", file.FilePath)};
+    }
+
+    {
+      byte_stream s = UnarcMem.data();
+      s.write("l");
+      if (file.Password.size()) {
+        s.write("-p" + file.Password);
+      }
+      s.write(file.FilePath);
+    }
+
+    if (!execute(host_exe, UnarcMem.name())) {
+      throw std::runtime_error{"Failed to execute Host"};
       return;
     }
-    for (auto &file : ArcFiles) {
-      if (!file.Install())
-        continue;
-      if (!std::filesystem::exists(file.FilePath)) {
-        LastError = gupta::format("% doesn't exist", file.FilePath);
-        return;
-      }
 
-      {
-        byte_stream s = UnarcMem.data();
-        s.write("l");
-        if (file.Password.size()) {
-          SHOW(file.Password);
-          s.write("-p" + file.Password);
+    {
+      read_stream s = UnarcMem.data();
+      while (1) {
+        auto what = s.read<std::string>();
+        auto int1 = s.read<uint64_t>();
+        auto int2 = s.read<uint64_t>();
+        SHOW(what);
+        if (what == "origsize")
+          file.OrigSize = int1;
+        else if (what == "compsize")
+          file.CompSize = int1;
+        else if (what == "error") {
+          throw std::runtime_error{gupta::format("Failed in Preparations for %: %", file.FilePath,
+                                                 s.read<std::string>())};
+        } else if (what == "completed") {
+          break;
+        } else if (what != "total_files") {
+          throw std::runtime_error{gupta::format("Failed in Preparations for %: %", file.FilePath,
+                                                 "Invalid What by host - " + what)};
         }
-        s.write(file.FilePath);
       }
+    }
 
-      if (!execute(host_exe, UnarcMem.name())) {
-        LastError = "Failed to execute Host";
+    MaxArcWriteSize += file.OrigSize;
+    SHOW(file.FilePath);
+    SHOW(file.OrigSize);
+    SHOW(file.CompSize);
+  }
+
+  SHOW(MaxArcWriteSize);
+  LastArchivesWriteSize = 0;
+
+  setStatusMessage("Starting Extraction");
+  for (auto &file : ArcFiles) {
+    if (!file.Install())
+      continue;
+    int i;
+    byte_stream s = UnarcMem.data();
+    for (i = 0; i < 20; i++) {
+      if (file.ExtractionCmd[i] == "-dp")
+        file.ExtractionCmd[i] += destinationFolder().toStdString();
+      s.write(file.ExtractionCmd[i]);
+      debug("ExtractionCmd[%]:%", i, file.ExtractionCmd[i]);
+    }
+
+    {
+      auto r = execute_nowait(host_exe, UnarcMem.name());
+      if (!r) {
+        throw std::runtime_error{"Failed To Execute host for extraction"};
         return;
       }
+      SCOPE_EXIT {
+        TerminateProcess(processInfo_nowait.hProcess, -1);
+        CloseHandle(processInfo_nowait.hProcess);
+        CloseHandle(processInfo_nowait.hThread);
+      };
 
-      {
-        read_stream s = UnarcMem.data();
-        while (1) {
-          auto what = s.read<std::string>();
-          auto int1 = s.read<uint64_t>();
-          auto int2 = s.read<uint64_t>();
-          SHOW(what);
-          if (what == "origsize")
-            file.OrigSize = int1;
-          else if (what == "compsize")
-            file.CompSize = int1;
-          else if (what == "error") {
-            LastError = gupta::format("Failed in Preparations for %: %", file.FilePath,
-                                      s.read<std::string>());
-            return;
-          } else if (what == "completed") {
+      DWORD e = 0;
+      while (GetExitCodeProcess(processInfo_nowait.hProcess, &e) && e == STILL_ACTIVE) {
+        {
+          UnarcMem.lock();
+          SCOPE_EXIT { UnarcMem.unlock(); };
+          read_stream s = UnarcMem.data();
+          auto info = s.read<InfoType>();
+          if (info == InfoType::WriteSize) {
+            CurrentArchiveWriteSize = s.read<uint64_t>();
+          } else if (info == InfoType::Error) {
+            throw std::runtime_error{
+                gupta::format("Unpacking Failed for %, %", file.FilePath, s.read<std::string>())};
+          } else if (info == InfoType::Completed) {
             break;
-          } else if (what != "total_files") {
-            LastError = gupta::format("Failed in Preparations for %: %", file.FilePath,
-                                      "Invalid What by host - " + what);
-            return;
           }
-        }
-      }
-
-      MaxArcWriteSize += file.OrigSize;
-      SHOW(file.OrigSize);
-      SHOW(file.CompSize);
-      SHOW(MaxArcWriteSize);
-    }
-
-    SHOW(MaxArcWriteSize);
-    LastArchivesWriteSize = 0;
-
-    setStatusMessage("Starting Extraction");
-    for (auto &file : ArcFiles) {
-      if (!file.Install())
-        continue;
-      int i;
-      byte_stream s = UnarcMem.data();
-      for (i = 0; i < 20; i++) {
-        s.write(file.ExtractionCmd[i]);
-      }
-
-      {
-        auto r = execute_nowait(host_exe, UnarcMem.name());
-        if (!r) {
-          LastError = "Failed To Execute host for extraction";
-          return;
-        }
-        SCOPE_EXIT {
-          TerminateProcess(processInfo_nowait.hProcess, -1);
-          CloseHandle(processInfo_nowait.hProcess);
-          CloseHandle(processInfo_nowait.hThread);
-        };
-
-        using namespace std::chrono_literals;
-        std::this_thread::sleep_for(100ms);
-
-        DWORD e = 0;
-        while (GetExitCodeProcess(processInfo_nowait.hProcess, &e) && e == STILL_ACTIVE) {
-          {
-            UnarcMem.lock();
-            SCOPE_EXIT { UnarcMem.unlock(); };
-            read_stream s = UnarcMem.data();
-            auto info = s.read<InfoType>();
-            if (info == InfoType::WriteSize) {
-              CurrentArchiveWriteSize = s.read<uint64_t>();
-            } else if (info == InfoType::Error) {
-              LastError =
-                  gupta::format("Unpacking Failed for %, %", file.FilePath, s.read<std::string>());
-              return;
-            } else if (info == InfoType::Completed) {
-              break;
-            }
-            info = s.read<InfoType>();
-            if (info == InfoType::FileName) {
-              setStatusMessage("Unpacking " + QString::fromStdString(s.read<std::string>()));
-            }
-            waitForGuiEvents();
+          info = s.read<InfoType>();
+          if (info == InfoType::FileName) {
+            setStatusMessage("Unpacking " + QString::fromStdString(s.read<std::string>()));
           }
-          setProgress((LastArchivesWriteSize + CurrentArchiveWriteSize) * 100.0 / MaxArcWriteSize);
-          std::this_thread::sleep_for(500ms);
+          waitForGuiEvents();
         }
-        LastArchivesWriteSize += file.OrigSize;
-        debug("host Returned : %", e);
+        setProgress((LastArchivesWriteSize + CurrentArchiveWriteSize) * 100.0 / MaxArcWriteSize);
+        std::this_thread::sleep_for(500ms);
       }
-    }
-  });
-  arcExtract.join();
 
-  if (LastError.size())
-    throw std::runtime_error{LastError};
+      LastArchivesWriteSize += file.OrigSize;
+      debug("host Returned : %", e);
+      setProgress(LastArchivesWriteSize * 100.0 / MaxArcWriteSize);
+    }
+  }
   waitForGuiEvents();
-
+  setStatusMessage("Installing Redistributables");
   for (auto &r : redestribPack) {
     auto rp = dynamic_cast<TRedistributable *>(r);
     assert(rp && "Ptr is not A TRedistributable");
+    if (!rp->checked)
+      continue;
     debug("running % with \"%\"", rp->name, rp->Cmd.c_str());
     execute(expandConstant(rp->Cmd.c_str()).toStdString());
   }
@@ -800,13 +781,14 @@ void TInstallerInfo::startInstallationImpl() try {
 
   waitForGuiEvents();
 
-  emit installationCompleted(QString::fromStdString(LastError));
+  emit installationCompleted("Installation Completed");
 
 } catch (std::exception &e) {
   debug("error while installation - %", e.what());
   emit installationFailed(e.what());
 }
 
+#include <QFile>
 void TInstallerInfo::startVerificationImpl() try {
   InstallationStartTime = now();
   installerState_ = TInstallerStates::InstallationRunning;
@@ -815,16 +797,18 @@ void TInstallerInfo::startVerificationImpl() try {
   QCryptographicHash Hasher(QCryptographicHash::Md5);
   MaxArcWriteSize = 0;
   LastArchivesWriteSize = 0;
+  CurrentArchiveWriteSize = 0;
 
   std::for_each(ArcFiles.begin(), ArcFiles.end(), [&](ArcDataFile &f) {
-    if (f.Md5Hash.empty()) {
-      throw std::runtime_error{f.FilePath + " is not provided with MD5 hash"};
-    }
     if (f.Install()) {
+      if (f.Md5Hash.empty()) {
+        throw std::runtime_error{f.FilePath + " is not provided with MD5 hash"};
+      }
       if (!std::filesystem::exists(f.FilePath)) {
         throw std::runtime_error{f.FilePath + " doesn't exists"};
       }
-      MaxArcWriteSize += std::filesystem::file_size(f.FilePath);
+      // MaxArcWriteSize += std::filesystem::file_size(f.FilePath);
+      MaxArcWriteSize += QFile(f.FilePath.c_str()).size();
     }
   });
 
@@ -832,6 +816,8 @@ void TInstallerInfo::startVerificationImpl() try {
     char data[1024 * 512];
     size_t data_sz = 0;
     std::for_each(ArcFiles.begin(), ArcFiles.end(), [&](ArcDataFile &f) {
+      if (!f.Install())
+        return;
       auto file_name = std::filesystem::path(f.FilePath).filename();
       setStatusMessage("Verifying " + QString::fromStdWString(file_name.wstring()));
       Hasher.reset();
@@ -844,7 +830,7 @@ void TInstallerInfo::startVerificationImpl() try {
       while ((data_sz = std::fread(data, 1, sizeof data, file))) {
         Hasher.addData(data, data_sz);
         CurrentArchiveWriteSize += data_sz;
-        setProgress((CurrentArchiveWriteSize + LastArchivesWriteSize) * 100.0 / MaxArcWriteSize);
+        setProgress((LastArchivesWriteSize + CurrentArchiveWriteSize) * 100.0 / MaxArcWriteSize);
         waitForGuiEvents();
       }
       LastArchivesWriteSize += CurrentArchiveWriteSize;
@@ -865,9 +851,6 @@ void TInstallerInfo::startVerificationImpl() try {
   emit verificationFailed(QString::fromLocal8Bit(e.what()));
 }
 
-void TComponent::setChecked(bool s) {
-  debug("%:%", name, s);
-  checked = s;
-}
+void TComponent::setChecked(bool s) { checked = s; }
 
-TComponent::~TComponent() { debug("destroyed"); }
+TComponent::~TComponent() {}

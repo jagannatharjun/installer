@@ -6,7 +6,8 @@
 
 struct byte_stream {
   byte_stream(void *d) : buf{static_cast<uint8_t *>(d)} {}
-  template <typename T, typename = std::enable_if_t<!std::is_pointer_v<T>>> void write(const T &d) {
+  template <typename T, typename = std::enable_if_t<!std::is_pointer_v<T> && std::is_pod_v<T>>>
+  void write(const T &d) {
     std::memcpy(buf, static_cast<const void *>(&d), sizeof d);
     buf += sizeof(T);
   }

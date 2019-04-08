@@ -6,6 +6,7 @@
 #include <cstdio>
 #include <gupta/cleanup.hpp>
 #include <gupta/ini.hpp>
+#include <gupta/windows.hpp>
 #include <string_view>
 
 template class std::shared_ptr<TResources>;
@@ -43,43 +44,70 @@ TResources::TResources(std::filesystem::path Source)
   //#ifndef NDEBUG
   //  return;
   //#endif
-	SHOW(TmpFolder_);
-  FILE *exe = NULL;
-	for(int i = 0; i < 5 && !(exe = std::fopen(getCurrentExecutable().string().c_str(), "rb")); i++)
-		std::this_thread::sleep_for(1ms);
-  if (!exe) {
-		perror("failed to open exe for resources");
-    throw std::runtime_error{"failed to open exe for resources"};
-	}
-	fseek(exe, -sizeof(uint64_t), SEEK_END);
-  uint64_t buf_size = 0;
-  SHOW(fread(&buf_size, sizeof buf_size, 1, exe));
-  SHOW(buf_size);
-  ExeResourceBuf_.resize(buf_size);
-  fseek(exe, -(buf_size + sizeof(uint64_t)), SEEK_END);
-  SHOW(fread(ExeResourceBuf_.data(), 1, buf_size, exe));
+  SHOW(TmpFolder_);
+
+  gupta::WinHandle ExeHandle =
+      CreateFileW(getCurrentExecutable().wstring().c_str(), GENERIC_READ, FILE_SHARE_READ, NULL,
+                  OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+  if (ExeHandle == INVALID_HANDLE_VALUE) {
+    throw std::runtime_error{"Failed to Open Exe: " + gupta::GetLastErrorAsString()};
+  }
+
+  if (SetFilePointer(ExeHandle, -8, NULL, FILE_END) == INVALID_SET_FILE_POINTER) {
+    throw std::runtime_error{"Seek Failed for Exe : " + gupta::GetLastErrorAsString()};
+  }
+
+  uint64_t BufSize = 0;
+  DWORD bytesRead = 0;
+  if (!ReadFile(ExeHandle, &BufSize, 8, &bytesRead, NULL)) {
+    throw std::runtime_error{"Reading Buffer Size Failed : " + gupta::GetLastErrorAsString()};
+  }
+
+  if (SetFilePointer(ExeHandle, -(BufSize + 8), NULL, FILE_END) == INVALID_SET_FILE_POINTER) {
+    throw std::runtime_error{"Seek Failed for Exe : " + gupta::GetLastErrorAsString()};
+  }
+
+  ExeResourceBuf_.resize(BufSize);
+
+  if (!ReadFile(ExeHandle, ExeResourceBuf_.data(), BufSize, &bytesRead, NULL)) {
+    throw std::runtime_error{"Reading Buffer Failed : " + gupta::GetLastErrorAsString()};
+  }
+
+  //  FILE *exe = NULL;
+  //  for (int i = 0; i < 5 && !(exe = std::fopen(getCurrentExecutable().string().c_str(), "rb"));
+  //  i++)
+  //    std::this_thread::sleep_for(100ms);
+  //  if (!exe) {
+  //    perror("failed to open exe for resources");
+  //    throw std::runtime_error{"failed to open exe for resources"};
+  //  }
+  //  fseek(exe, -sizeof(uint64_t), SEEK_END);
+  //  uint64_t buf_size = 0;
+  //  SHOW(fread(&buf_size, sizeof buf_size, 1, exe));
+  //  SHOW(buf_size);
+  //  ExeResourceBuf_.resize(buf_size);
+  //  fseek(exe, -(buf_size + sizeof(uint64_t)), SEEK_END);
+  //  SHOW(fread(ExeResourceBuf_.data(), 1, buf_size, exe));
+  // fclose(exe);
   EncryptDecrypt(ExeResourceBuf_);
-  auto archive = gupta::openConcatFileStream(ExeResourceBuf_.data(), buf_size);
+  auto archive = gupta::openConcatFileStream(ExeResourceBuf_.data(), ExeResourceBuf_.size());
   for (auto f = archive->next_file(); f; f = archive->next_file()) {
     SHOW(f->path().string());
     Files_.emplace_back(std::move(f));
   }
-  fclose(exe);
 }
 
-void tresources_dir_remove(const std::filesystem::path& Dir) {
-	std::error_code ec;
-	for(const auto& f: std::filesystem::directory_iterator(Dir)) {
-		if (std::filesystem::is_directory(f))
-			tresources_dir_remove(f);
-		int i = ::remove(f.path().string().c_str());
-		debug("%: %",f.path(), i);
-	}
+void tresources_dir_remove(const std::filesystem::path &Dir) {
+  std::error_code ec;
+  for (const auto &f : std::filesystem::directory_iterator(Dir)) {
+    if (std::filesystem::is_directory(f))
+      tresources_dir_remove(f);
+    int i = ::remove(f.path().string().c_str());
+    debug("%: %", f.path(), i);
+  }
 }
 
-TResources::~TResources() {
-	tresources_dir_remove(TmpFolder_);
-}
+TResources::~TResources() { tresources_dir_remove(TmpFolder_); }
 
 TResources::path TResources::extractFile(TResources::path DestFile,
                                          const TResources::path &SrcFile) {
