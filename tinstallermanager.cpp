@@ -121,4 +121,13 @@ TInstallerManager::~TInstallerManager() {
   // delete imageProvider; // engine will take ownership
 }
 
-void TInstallerManager::musicButtonClicked() {}
+void TInstallerManager::musicButtonClicked() {
+	static bool isMusicPlaying = true;
+	if (isMusicPlaying) {
+		mciSendStringA("pause mp3",NULL, 0, NULL);
+		isMusicPlaying = false;
+	} else {
+		mciSendStringA("resume mp3",NULL,0,NULL);
+		isMusicPlaying = true;
+	}
+}

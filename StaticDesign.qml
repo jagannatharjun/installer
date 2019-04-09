@@ -487,9 +487,18 @@ Image {
         height: 12
         x: 778
         y: 10
+				
+				ColorOverlay {
+                source: close_button
+                color: installer_info.themeColor
+                anchors.fill: parent
+								visible: close_marea.containsMouse
+            }
 
         MouseArea {
-            anchors.fill: parent
+            id: close_marea
+						hoverEnabled: true
+						anchors.fill: parent
             onClicked: closeButtonClicked()
         }
     }
@@ -505,6 +514,14 @@ Image {
             source: "image://resources/images/minimize.png"
             y: 10
             height: 2
+						id: minimize_button_bg
+						
+						ColorOverlay {
+                source: minimize_button_bg
+                color: installer_info.themeColor
+                anchors.fill: parent
+								visible: minimize_button.hovered
+            }
         }
         onClicked: minimizeButtonClicked()
     }
@@ -514,12 +531,20 @@ Image {
         source: "image://resources/images/music.png"
         x: 744 - (778 - 744)
         y: 10
+				
+				ColorOverlay {
+                source: music_button
+                color: installer_info.themeColor
+                anchors.fill: parent
+								visible: music_marea.containsMouse
+            }
 
         MouseArea {
+						id: music_marea
             anchors.fill: parent
+						hoverEnabled : true
             onClicked: {
                 musicButtonClicked()
-                console.log('music')
             }
         }
     }
