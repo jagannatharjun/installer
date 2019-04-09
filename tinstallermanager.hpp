@@ -7,7 +7,6 @@
 class QQuickView;
 class TResources;
 class QQuickImageProvider;
-class QMediaPlayer;
 class TInstallerInfo;
 
 class TInstallerManager : public QObject {
@@ -22,7 +21,6 @@ private:
   QQmlApplicationEngine Application_;
   QQuickImageProvider *imageProvider;
   std::shared_ptr<TResources> Resources_;
-  QMediaPlayer *Player_;
   TInstallerInfo *InstallerInfo_;
 
 private slots:

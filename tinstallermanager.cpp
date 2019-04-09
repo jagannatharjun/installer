@@ -7,11 +7,10 @@
 #include <QQuickImageProvider>
 
 #include <QDebug>
-
-#include <QMediaPlayer>
-#include <QMediaPlaylist>
 #include <algorithm>
 #include <memory>
+
+#include <windows.h>
 
 class TResourcesImageProvider : public QQuickImageProvider {
 public:
@@ -57,6 +56,21 @@ private:
 TInstallerManager::TInstallerManager(std::shared_ptr<TResources> Resources)
     : Resources_(Resources) {
 
+  auto music_mp3 = Resources_->extractTemporaryFile("music.mp3").string();
+  auto r = mciSendStringA(gupta::format(R"(open "%" type mpegvideo alias mp3)", music_mp3).c_str(),
+                          NULL, 0, NULL);
+  if (r != 0) {
+    char c[1024];
+    mciGetErrorStringA(r, c, sizeof c);
+    debug("mci failed %", c);
+  }
+  r = mciSendStringA("play mp3 repeat", NULL, 0, NULL);
+  if (r != 0) {
+    char c[1024];
+    mciGetErrorStringA(r, c, sizeof c);
+    debug("mci failed %", c);
+  }
+
   InstallerInfo_ = new TInstallerInfo(this);
 
   imageProvider = new TResourcesImageProvider(Resources);
@@ -64,17 +78,6 @@ TInstallerManager::TInstallerManager(std::shared_ptr<TResources> Resources)
 
   QQmlContext *rootCtx = Application_.rootContext();
   SHOW(rootCtx);
-
-  Player_ = new QMediaPlayer(this);
-  Resources_->extractTemporaryFile("music.mp3");
-
-  auto playlist = new QMediaPlaylist(this);
-  playlist->addMedia(QUrl::fromLocalFile(
-      QString::fromStdWString(Resources_->extractTemporaryFile("music.mp3").wstring())));
-  playlist->setPlaybackMode(QMediaPlaylist::Loop);
-  Player_->setMedia(playlist);
-  Player_->setVolume(50);
-  Player_->play();
 
   // take ownership of packs so that their destruction will be guarrenteed
   std::for_each(TInstallerInfo::languagePack.begin(), TInstallerInfo::languagePack.end(),
@@ -114,12 +117,8 @@ TInstallerManager::TInstallerManager(std::shared_ptr<TResources> Resources)
 }
 
 TInstallerManager::~TInstallerManager() {
+  mciSendStringA("close mp3", NULL, 0, 0);
   // delete imageProvider; // engine will take ownership
 }
 
-void TInstallerManager::musicButtonClicked() {
-  if (Player_->state() == QMediaPlayer::PausedState)
-    Player_->play();
-  else
-    Player_->pause();
-}
+void TInstallerManager::musicButtonClicked() {}

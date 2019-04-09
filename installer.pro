@@ -4,7 +4,7 @@
 #
 #-------------------------------------------------
 
-QT       += qml quickcontrols2 core winextras multimedia
+QT       += qml quickcontrols2 core winextras
 CONFIG   += qtquickcompiler
 
 TARGET = installer
@@ -25,8 +25,8 @@ CONFIG += c++1z
 
 win32-msvc: LIBS += PowrProf.lib
 win32-clang-msvc: LIBS += PowrProf.lib wbemuuid.lib
-win32-clang-g++ : LIBS += -lPowrProf -lstdc++fs -lOle32 -luuid -lwbemuuid
-win32-g++ : LIBS += -lPowrProf -lstdc++fs -lOle32 -luuid -lwbemuuid
+win32-clang-g++ : LIBS += -lPowrProf -lstdc++fs -lOle32 -luuid -lwbemuuid -lWinmm
+win32-g++ : LIBS += -lPowrProf -lstdc++fs -lOle32 -luuid -lwbemuuid -lWinmm
 RESOURCES += resources.rc
 SOURCES +=  main.cpp shortcut.cpp tinstallerinfo.cpp  tinstallermanager.cpp TResources.cpp wmi_object.cpp
 RESOURCES +=  qml.qrc 
